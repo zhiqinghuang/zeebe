@@ -17,7 +17,6 @@ package io.zeebe.msgpack.mapping;
 
 import static io.zeebe.msgpack.mapping.MappingBuilder.createMapping;
 import static io.zeebe.msgpack.mapping.MappingTestUtil.*;
-import static io.zeebe.msgpack.mapping.MappingTestUtil.constructNodeId;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.HashMap;
@@ -109,7 +108,7 @@ public class MsgPackDocumentExtractorTest {
     final MsgPackTree extractTree = extractor.extract(mapping);
 
     // then tree root is leaf
-    assertThat(extractTree.isLeaf("$")).isTrue();
+    assertThat(extractTree.isLeaf("$".getBytes())).isTrue();
 
     // and value is expected as
     final Map<String, Object> json = new HashMap<>();

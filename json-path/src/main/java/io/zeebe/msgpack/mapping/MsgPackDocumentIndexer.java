@@ -22,7 +22,6 @@ import io.zeebe.msgpack.query.MsgPackTraverser;
 import io.zeebe.msgpack.spec.MsgPackToken;
 import io.zeebe.msgpack.spec.MsgPackType;
 import java.util.ArrayDeque;
-import java.util.Arrays;
 import java.util.Deque;
 import org.agrona.DirectBuffer;
 
@@ -108,7 +107,7 @@ public final class MsgPackDocumentIndexer implements MsgPackTokenVisitor {
    * MAP or ARRAY. This node will be added several times, corresponding to the size of the
    * MsgPackToken#size of this node.
    */
-  private final Deque<String> parentsStack = new ArrayDeque<>();
+  private final Deque<byte[]> parentsStack = new ArrayDeque<>();
 
   /** Indicates if the current value belongs to an array. */
   private final Deque<Boolean> arrayValueStack = new ArrayDeque<>();
@@ -148,7 +147,8 @@ public final class MsgPackDocumentIndexer implements MsgPackTokenVisitor {
         lastTypeStack.push(MsgPackType.EXTENSION);
       } else {
         if (currentValueType == MsgPackType.MAP || currentValueType == MsgPackType.ARRAY) {
-          final int childSize = currentValue.getSize();
+          assert currentValue.getSize() < 128;
+          final byte childSize = (byte) currentValue.getSize();
           addNewParent(childSize, currentValueType);
         } else {
           processValueNode(position, currentValue);
@@ -173,9 +173,9 @@ public final class MsgPackDocumentIndexer implements MsgPackTokenVisitor {
    * @param nodeName the name of the current node
    * @return the id of the current node
    */
-  private String createNodeId(String nodeName) {
+  private byte[] createNodeId(byte[] nodeName) {
     if (!parentsStack.isEmpty()) {
-      final String parentId = parentsStack.peek();
+      final byte[] parentId = parentsStack.peek();
       return construct(parentId, nodeName);
     }
     return nodeName;
@@ -187,9 +187,9 @@ public final class MsgPackDocumentIndexer implements MsgPackTokenVisitor {
    * @param childCount the count of child's
    * @param currentMsgPackType the message pack type of the current node
    */
-  private void addNewParent(int childCount, MsgPackType currentMsgPackType) {
-    final String nodeName = getNodeName(lastKey, lastKeyLen);
-    String nodeId;
+  private void addNewParent(byte childCount, MsgPackType currentMsgPackType) {
+    final byte[] nodeName = getNodeName(lastKey, lastKeyLen);
+    byte[] nodeId;
     final boolean isArrayValue;
     if (!arrayValueStack.isEmpty()) {
       isArrayValue = arrayValueStack.pop();
@@ -209,7 +209,7 @@ public final class MsgPackDocumentIndexer implements MsgPackTokenVisitor {
     addParentForChildCountToStacks(childCount, currentMsgPackType, nodeId, isArrayValue);
   }
 
-  private void addParentNodeToTree(boolean isArray, String nodeName, String nodeId) {
+  private void addParentNodeToTree(boolean isArray, byte[] nodeName, byte[] nodeId) {
     if (isArray) {
       msgPackTree.addArrayNode(nodeId);
     } else {
@@ -217,17 +217,21 @@ public final class MsgPackDocumentIndexer implements MsgPackTokenVisitor {
     }
 
     if (!parentsStack.isEmpty() && lastType != MsgPackType.ARRAY) {
-      final String parentId = parentsStack.pop();
+      final byte[] parentId = parentsStack.pop();
       msgPackTree.addChildToNode(nodeName, parentId);
     }
   }
 
+  // TODO current assumption we have no more than 127 childs maybe we have to improve this
   private void addParentForChildCountToStacks(
-      int childCount, MsgPackType currentMsgPackType, String nodeId, boolean isArrayValue) {
-    for (int i = 0; i < childCount; i++) {
+      byte childCount, MsgPackType currentMsgPackType, byte[] nodeId, boolean isArrayValue) {
+    for (byte i = 0; i < childCount; i++) {
       if (currentMsgPackType == MsgPackType.ARRAY) {
-        msgPackTree.addChildToNode("" + i, nodeId);
-        parentsStack.push(construct(nodeId, "" + (childCount - 1 - i)));
+        final byte[] childName = {getByteRepresentationForIndex(i)};
+        msgPackTree.addChildToNode(childName, nodeId);
+
+        final byte[] nodeName = {getByteRepresentationForIndex((byte) (childCount - 1 - i))};
+        parentsStack.push(construct(nodeId, nodeName));
         arrayValueStack.push(true);
       } else {
         parentsStack.push(nodeId);
@@ -237,6 +241,10 @@ public final class MsgPackDocumentIndexer implements MsgPackTokenVisitor {
       }
       lastTypeStack.push(currentMsgPackType);
     }
+  }
+
+  private byte getByteRepresentationForIndex(byte i) {
+    return (byte) ('0' + i);
   }
 
   /**
@@ -251,9 +259,9 @@ public final class MsgPackDocumentIndexer implements MsgPackTokenVisitor {
    * @param currentValue the message pack token which represents a simple value
    */
   private void processValueNode(long position, MsgPackToken currentValue) {
-    String parentId = parentsStack.pop();
-    final String nodeName;
-    final String nodeId;
+    byte[] parentId = parentsStack.pop();
+    final byte[] nodeName;
+    final byte[] nodeId;
 
     if (!arrayValueStack.isEmpty()) {
       if (lastType != MsgPackType.ARRAY) {
@@ -279,25 +287,6 @@ public final class MsgPackDocumentIndexer implements MsgPackTokenVisitor {
     msgPackTree.addLeafNode(nodeId, position, currentValue.getTotalLength());
   }
 
-  /**
-   * Extracts the index of the array value from the current node id.
-   *
-   * <p>Example: * given nodeId = "$[arrayId][0]" * returns "0" as string Even if the nodeId
-   * contains square brackets in the node name like "$[array[Id]][0]" will return the right index
-   * "0".
-   *
-   * @param nodeId the node id which contains the index
-   * @return the array value index
-   */
-  private static String getArrayValueIndex(String nodeId) {
-    final int lastIndex = nodeId.lastIndexOf(JSON_PATH_SEPARATOR);
-    final String nodeName =
-        nodeId.substring(
-            lastIndex + JSON_PATH_SEPARATOR.length(),
-            nodeId.length() - JSON_PATH_SEPARATOR_END.length());
-    return nodeName;
-  }
-
   /** Clears the preprocessor and resets to the initial state. */
   public void clear() {
     lastKey[0] = '$';
@@ -314,8 +303,9 @@ public final class MsgPackDocumentIndexer implements MsgPackTokenVisitor {
    * @param length the length of the name
    * @return the name as string
    */
-  private String getNodeName(byte[] bytes, int length) {
-    final byte nameBytes[] = Arrays.copyOf(bytes, length);
-    return new String(nameBytes);
+  private byte[] getNodeName(byte[] bytes, int length) {
+    final byte[] copy = new byte[length];
+    System.arraycopy(bytes, 0, copy, 0, length);
+    return copy;
   }
 }

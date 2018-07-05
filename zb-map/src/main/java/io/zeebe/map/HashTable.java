@@ -38,17 +38,23 @@ public class HashTable implements Closeable {
 
   public HashTable(int tableSize) {
     length = Math.multiplyExact(tableSize, SIZE_OF_LONG);
-    realAddress = UNSAFE.allocateMemory(length);
     clear();
   }
 
   @Override
-  public void close() throws IOException {
-    UNSAFE.freeMemory(realAddress);
+  public void close() {
+    if (realAddress > 0) {
+      UNSAFE.freeMemory(realAddress);
+    }
   }
 
   public void clear() {
-    UNSAFE.setMemory(realAddress, length, (byte) 0);
+    try {
+      close();
+    } finally {
+      realAddress = UNSAFE.allocateMemory(length);
+      UNSAFE.setMemory(realAddress, length, (byte) 0);
+    }
   }
 
   public int serializationSize() {

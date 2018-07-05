@@ -80,6 +80,8 @@ import org.agrona.DirectBuffer;
  * }</pre>
  */
 public final class MsgPackDocumentExtractor {
+  private static final byte[] EMPTY_ARRAY = new byte[0];
+
   public static final String EXCEPTION_MSG_MAPPING_DOES_NOT_MATCH = "No data found for query %s.";
   public static final String EXCEPTION_MSG_MAPPING_HAS_MORE_THAN_ONE_MATCHING_SOURCE =
       "JSON path mapping has more than one matching source.";
@@ -148,10 +150,10 @@ public final class MsgPackDocumentExtractor {
    * @param nodeName the name of the current node
    * @return the new node id consist of the parent id and the node name
    */
-  private String createParentRelation(String parentId, String nodeName) {
-    final String nodeId;
+  private byte[] createParentRelation(byte[] parentId, byte[] nodeName) {
+    final byte[] nodeId;
 
-    if (parentId.isEmpty()) {
+    if (parentId.length == 0) {
       nodeId = nodeName;
     } else {
       final boolean isIndex = isIndex(nodeName);
@@ -169,10 +171,10 @@ public final class MsgPackDocumentExtractor {
     return nodeId;
   }
 
-  private boolean isIndex(String nodeName) {
-    final int len = nodeName.length();
+  private boolean isIndex(byte[] nodeName) {
+    final int len = nodeName.length;
     for (int i = 0; i < len; i++) {
-      final char currentChar = nodeName.charAt(i);
+      final char currentChar = (char) nodeName[i];
       if (currentChar < '0' || currentChar > '9') {
         return false;
       }
@@ -205,13 +207,14 @@ public final class MsgPackDocumentExtractor {
   }
 
   private final class TargetPathVisitor implements JsonPathTokenVisitor {
-    private String nodeId;
-    private String parentId;
+
+    private byte[] nodeId;
+    private byte[] parentId;
     private Mapping mapping;
 
     void reset(Mapping mapping) {
-      nodeId = "";
-      parentId = "";
+      nodeId = EMPTY_ARRAY;
+      parentId = EMPTY_ARRAY;
       this.mapping = mapping;
     }
 
@@ -219,7 +222,8 @@ public final class MsgPackDocumentExtractor {
     public void visit(
         JsonPathToken type, DirectBuffer valueBuffer, int valueOffset, int valueLength) {
       if (type == JsonPathToken.LITERAL || type == JsonPathToken.ROOT_OBJECT) {
-        final String nodeName = valueBuffer.getStringWithoutLengthUtf8(valueOffset, valueLength);
+        final byte[] nodeName = new byte[valueLength];
+        valueBuffer.getBytes(valueOffset, nodeName, 0, valueLength);
         nodeId = createParentRelation(parentId, nodeName);
         parentId = nodeId;
       } else if (type == JsonPathToken.END_INPUT) {

@@ -55,8 +55,8 @@ public class MsgPackDocumentTreeWriter {
     msgPackWriter.wrap(resultingBuffer, 0);
 
     if (documentTree.size() > 0) {
-      final String startNode = Mapping.JSON_ROOT_PATH;
-      writeNode("", startNode, false);
+      final byte[] startNode = new byte[] {Mapping.JSON_ROOT_PATH_BYTE};
+      writeNode(new byte[0], startNode, false);
     } else {
       msgPackWriter.writeNil();
     }
@@ -79,26 +79,26 @@ public class MsgPackDocumentTreeWriter {
    * @param nodeName the name of the current node
    * @param isArray indicates if the current node belongs to an array
    */
-  private void writeNode(String parentId, String nodeName, boolean isArray) {
-    if (!parentId.isEmpty() && !isArray) {
-      this.nodeName.wrap(nodeName.getBytes());
+  private void writeNode(byte[] parentId, byte[] nodeName, boolean isArray) {
+    if (parentId.length != 0 && !isArray) {
+      this.nodeName.wrap(nodeName);
       msgPackWriter.writeString(this.nodeName);
     }
 
-    final String nodeId = parentId.isEmpty() ? nodeName : construct(parentId, nodeName);
+    final byte[] nodeId = parentId.length == 0 ? nodeName : construct(parentId, nodeName);
     if (documentTree.isLeaf(nodeId)) {
       documentTree.writeLeafMapping(msgPackWriter, nodeId);
     } else {
       final boolean isArrayNode = documentTree.isArrayNode(nodeId);
-      final Set<String> childs = documentTree.getChilds(nodeId);
+      final Set<DirectBuffer> childs = documentTree.getChilds(nodeId);
       if (isArrayNode) {
         msgPackWriter.writeArrayHeader(childs.size());
       } else {
         msgPackWriter.writeMapHeader(childs.size());
       }
 
-      for (String child : childs) {
-        writeNode(nodeId, child, isArrayNode);
+      for (DirectBuffer child : childs) {
+        writeNode(nodeId, child.byteArray(), isArrayNode);
       }
     }
   }

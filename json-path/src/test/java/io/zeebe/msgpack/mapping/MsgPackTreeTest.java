@@ -38,7 +38,7 @@ public class MsgPackTreeTest {
     msgPackTree.wrap(documentBuffer);
 
     // when
-    msgPackTree.addLeafNode("$", 0, MSG_PACK_BYTES.length);
+    msgPackTree.addLeafNode("$".getBytes(), 0, MSG_PACK_BYTES.length);
 
     // then
     assertThatIsLeafNode(msgPackTree, "$", MSG_PACK_BYTES);
@@ -49,7 +49,7 @@ public class MsgPackTreeTest {
     // given
     final DirectBuffer documentBuffer = new UnsafeBuffer(MSG_PACK_BYTES);
     msgPackTree.wrap(documentBuffer);
-    msgPackTree.addLeafNode("$underlying", 0, MSG_PACK_BYTES.length);
+    msgPackTree.addLeafNode("$underlying".getBytes(), 0, MSG_PACK_BYTES.length);
 
     // when
     final Map<String, Object> jsonMap = new HashMap<>();
@@ -72,7 +72,9 @@ public class MsgPackTreeTest {
     queryExecutor.moveToResult(0);
 
     msgPackTree.addLeafNode(
-        "$extract", queryExecutor.currentResultPosition(), queryExecutor.currentResultLength());
+        "$extract".getBytes(),
+        queryExecutor.currentResultPosition(),
+        queryExecutor.currentResultLength());
 
     // then
     assertThatIsLeafNode(msgPackTree, "$underlying", MSG_PACK_BYTES);

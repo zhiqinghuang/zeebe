@@ -45,21 +45,27 @@ import org.agrona.concurrent.UnsafeBuffer;
  * MsgPackNodeType#EXTRACTED_LEAF_NODE} are used.
  */
 public class MsgPackTree {
-  protected final Map<String, MsgPackNodeType> nodeTypeMap; // Bytes2LongHashIndex nodeTypeMap;
-  protected final Map<String, Set<String>> nodeChildsMap;
-  protected final Map<String, Long> leafMap; // Bytes2LongHashIndex leafMap;
+
+  private static class Node {
+    final DirectBuffer nodeId = new UnsafeBuffer(0, 0);
+    final Set<DirectBuffer> childs = new LinkedHashSet<>();
+
+    MsgPackNodeType msgPackNodeType;
+    long leafMapping;
+  }
+
+  private final Map<DirectBuffer, Node> nodes;
+  private final DirectBuffer bufferForSearch = new UnsafeBuffer(0, 0);
 
   protected final DirectBuffer underlyingDocument = new UnsafeBuffer(0, 0);
   protected DirectBuffer extractDocument;
 
   public MsgPackTree() {
-    nodeTypeMap = new HashMap<>();
-    nodeChildsMap = new HashMap<>();
-    leafMap = new HashMap<>();
+    nodes = new HashMap<>();
   }
 
-  public int size() {
-    return nodeTypeMap.size();
+  public long size() {
+    return nodes.size();
   }
 
   public void wrap(DirectBuffer underlyingDocument) {
@@ -69,63 +75,80 @@ public class MsgPackTree {
 
   public void clear() {
     extractDocument = null;
-    nodeChildsMap.clear();
-    nodeTypeMap.clear();
-    leafMap.clear();
+    nodes.clear();
   }
 
-  public Set<String> getChilds(String nodeId) {
-    return nodeChildsMap.get(nodeId);
+  public Set<DirectBuffer> getChilds(byte[] nodeId) {
+    bufferForSearch.wrap(nodeId);
+    return nodes.get(bufferForSearch).childs;
   }
 
-  public void addLeafNode(String nodeId, long position, int length) {
-    leafMap.put(nodeId, (position << 32) | length);
-    nodeTypeMap.put(nodeId, extractDocument == null ? EXISTING_LEAF_NODE : EXTRACTED_LEAF_NODE);
+  public void addLeafNode(byte[] nodeId, long position, int length) {
+    final Node node = new Node();
+    node.leafMapping = (position << 32) | length;
+    node.msgPackNodeType = extractDocument == null ? EXISTING_LEAF_NODE : EXTRACTED_LEAF_NODE;
+    node.nodeId.wrap(nodeId);
+    nodes.put(node.nodeId, node);
   }
 
-  private void addParentNode(String nodeId, MsgPackNodeType nodeType) {
-    nodeTypeMap.put(nodeId, nodeType);
-    if (!nodeChildsMap.containsKey(nodeId)) {
-      nodeChildsMap.put(nodeId, new LinkedHashSet<>());
+  private void addParentNode(byte[] nodeId, MsgPackNodeType nodeType) {
+    final Node node = new Node();
+    node.msgPackNodeType = nodeType;
+    node.nodeId.wrap(nodeId);
+
+    final Node existingNode = nodes.get(node.nodeId);
+    if (null == existingNode) {
+      nodes.put(node.nodeId, node);
+    } else {
+      existingNode.leafMapping = 0;
+      existingNode.msgPackNodeType = nodeType;
     }
   }
 
-  public void addMapNode(String nodeId) {
-    if (isLeaf(nodeId)) {
-      leafMap.remove(nodeId);
-    }
+  public void addMapNode(byte[] nodeId) {
     addParentNode(nodeId, MsgPackNodeType.MAP_NODE);
   }
 
-  public void addArrayNode(String nodeId) {
+  public void addArrayNode(byte[] nodeId) {
     addParentNode(nodeId, MsgPackNodeType.ARRAY_NODE);
   }
 
-  public void addChildToNode(String childName, String parentId) {
-    nodeChildsMap.get(parentId).add(childName);
+  public void addChildToNode(byte[] childName, byte[] parentId) {
+    bufferForSearch.wrap(parentId);
+    nodes.get(bufferForSearch).childs.add(new UnsafeBuffer(childName));
   }
 
-  public boolean isLeaf(String nodeId) {
-    return leafMap.containsKey(nodeId);
+  public boolean isLeaf(byte[] nodeId) {
+    bufferForSearch.wrap(nodeId);
+    final Node node = nodes.get(bufferForSearch);
+
+    if (node != null) {
+      return node.leafMapping != 0;
+    }
+    return false;
   }
 
-  public boolean isArrayNode(String nodeId) {
-    final MsgPackNodeType msgPackNodeType = nodeTypeMap.get(nodeId);
-    return msgPackNodeType != null && msgPackNodeType == MsgPackNodeType.ARRAY_NODE;
+  public boolean isArrayNode(byte[] nodeId) {
+    bufferForSearch.wrap(nodeId);
+    final Node node = nodes.get(bufferForSearch);
+    return node.msgPackNodeType == MsgPackNodeType.ARRAY_NODE;
   }
 
-  public boolean isMapNode(String nodeId) {
-    final MsgPackNodeType msgPackNodeType = nodeTypeMap.get(nodeId);
-    return msgPackNodeType != null && msgPackNodeType == MsgPackNodeType.MAP_NODE;
+  public boolean isMapNode(byte[] nodeId) {
+    bufferForSearch.wrap(nodeId);
+    final Node node = nodes.get(bufferForSearch);
+    return node != null && node.msgPackNodeType == MsgPackNodeType.MAP_NODE;
   }
 
   public void setExtractDocument(DirectBuffer documentBuffer) {
     this.extractDocument = documentBuffer;
   }
 
-  public void writeLeafMapping(MsgPackWriter writer, String leafId) {
-    final long mapping = leafMap.get(leafId);
-    final MsgPackNodeType nodeType = nodeTypeMap.get(leafId);
+  public void writeLeafMapping(MsgPackWriter writer, byte[] leafId) {
+    bufferForSearch.wrap(leafId);
+    final Node node = nodes.get(bufferForSearch);
+    final long mapping = node.leafMapping;
+    final MsgPackNodeType nodeType = node.msgPackNodeType;
     final int position = (int) (mapping >> 32);
     final int length = (int) mapping;
     DirectBuffer relatedBuffer = underlyingDocument;
@@ -137,27 +160,25 @@ public class MsgPackTree {
 
   public void merge(MsgPackTree sourceTree) {
     extractDocument = sourceTree.underlyingDocument;
-    for (Map.Entry<String, MsgPackNodeType> leafMapEntry : sourceTree.nodeTypeMap.entrySet()) {
-      final String key = leafMapEntry.getKey();
-      MsgPackNodeType nodeType = leafMapEntry.getValue();
+
+    for (Node node : sourceTree.nodes.values()) {
+      final DirectBuffer key = node.nodeId;
+
+      final Node newNode = new Node();
+      newNode.nodeId.wrap(key);
+
+      MsgPackNodeType nodeType = node.msgPackNodeType;
       if (nodeType == EXISTING_LEAF_NODE) {
         nodeType = EXTRACTED_LEAF_NODE;
       }
-      nodeTypeMap.put(key, nodeType);
-    }
-    leafMap.putAll(sourceTree.leafMap);
+      newNode.msgPackNodeType = nodeType;
+      newNode.leafMapping = node.leafMapping;
 
-    for (Map.Entry<String, Set<String>> nodeChildsEntry : sourceTree.nodeChildsMap.entrySet()) {
-      final String key = nodeChildsEntry.getKey();
-
-      // if we change the following condition to if (nodeChildsMap.containsKey(key))
-      // we get a deep merge
-      if (key.equals(Mapping.JSON_ROOT_PATH)) {
-        nodeChildsMap
-            .computeIfAbsent(key, (k) -> new LinkedHashSet<>())
-            .addAll(nodeChildsEntry.getValue());
+      if (key.capacity() == 1 && key.getByte(0) == Mapping.JSON_ROOT_PATH_BYTE) {
+        nodes.computeIfAbsent(key, (k) -> newNode).childs.addAll(node.childs);
       } else {
-        nodeChildsMap.put(key, nodeChildsEntry.getValue());
+        newNode.childs.addAll(node.childs);
+        nodes.put(newNode.nodeId, newNode);
       }
     }
   }

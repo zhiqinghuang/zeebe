@@ -28,6 +28,7 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.msgpack.jackson.dataformat.MessagePackFactory;
@@ -97,30 +98,30 @@ public class MappingTestUtil {
 
   public static void assertThatIsArrayNode(
       MsgPackTree msgPackTree, String nodeId, String... childs) {
-    assertThat(msgPackTree.isArrayNode(nodeId)).isTrue();
+    assertThat(msgPackTree.isArrayNode(nodeId.getBytes())).isTrue();
     assertChildNodes(msgPackTree, nodeId, childs.length, childs);
   }
 
   public static void assertThatIsMapNode(MsgPackTree msgPackTree, String nodeId, String... childs) {
-    assertThat(msgPackTree.isMapNode(nodeId)).isTrue();
+    assertThat(msgPackTree.isMapNode(nodeId.getBytes())).isTrue();
     assertChildNodes(msgPackTree, nodeId, childs.length, childs);
   }
 
   private static void assertChildNodes(
       MsgPackTree msgPackTree, String nodeId, int childCount, String[] childs) {
-    final Set<String> arrayValues = msgPackTree.getChilds(nodeId);
+    final Set<DirectBuffer> arrayValues = msgPackTree.getChilds(nodeId.getBytes());
     assertThat(arrayValues.size()).isEqualTo(childCount);
     for (String child : childs) {
-      assertThat(arrayValues.contains(child)).isTrue();
+      assertThat(arrayValues.contains(new UnsafeBuffer(child.getBytes()))).isTrue();
     }
   }
 
   public static void assertThatIsLeafNode(
       MsgPackTree msgPackTree, String leafId, byte[] expectedBytes) {
-    assertThat(msgPackTree.isLeaf(leafId)).isTrue();
+    assertThat(msgPackTree.isLeaf(leafId.getBytes())).isTrue();
 
     WRITER.wrap(WRITE_BUFFER, 0);
-    msgPackTree.writeLeafMapping(WRITER, leafId);
+    msgPackTree.writeLeafMapping(WRITER, leafId.getBytes());
 
     assertThat(WRITER.getOffset()).isEqualTo(expectedBytes.length);
     assertThat(WRITE_BUFFER.byteArray()).startsWith(expectedBytes);
@@ -132,7 +133,10 @@ public class MappingTestUtil {
       builder.append(nodeNames[0]);
 
       for (int i = 1; i < nodeNames.length; i++) {
-        builder.append(JSON_PATH_SEPARATOR).append(nodeNames[i]).append(JSON_PATH_SEPARATOR_END);
+        builder
+            .append((char) JSON_PATH_SEPARATOR)
+            .append(nodeNames[i])
+            .append((char) JSON_PATH_SEPARATOR_END);
       }
     }
     return builder.toString();

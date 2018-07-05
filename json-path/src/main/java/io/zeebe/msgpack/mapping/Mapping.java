@@ -28,6 +28,7 @@ import org.agrona.DirectBuffer;
  */
 public class Mapping {
   public static final String JSON_ROOT_PATH = "$";
+  public static final byte JSON_ROOT_PATH_BYTE = '$';
   public static final String MAPPING_STRING = "%s -> %s";
 
   private final JsonPathQuery source;

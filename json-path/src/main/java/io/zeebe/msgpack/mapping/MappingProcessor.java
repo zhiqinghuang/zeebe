@@ -219,6 +219,7 @@ public class MappingProcessor {
       return resultLen;
     } finally {
       clear();
+      msgPackTree.clear();
     }
   }
 

@@ -256,6 +256,12 @@
             <goals>
               <goal>test-jar</goal>
             </goals>
+            <configuration>
+              <excludes>
+                <exclude>**/benchmarks/**</exclude>
+                <exclude>**/BenchmarkList</exclude>
+              </excludes>
+            </configuration>
           </execution>
         </executions>
         <configuration>

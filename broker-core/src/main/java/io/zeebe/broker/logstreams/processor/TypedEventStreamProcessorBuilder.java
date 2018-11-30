@@ -17,9 +17,6 @@
  */
 package io.zeebe.broker.logstreams.processor;
 
-import io.zeebe.logstreams.snapshot.ComposedSnapshot;
-import io.zeebe.logstreams.spi.ComposableSnapshotSupport;
-import io.zeebe.logstreams.spi.SnapshotSupport;
 import io.zeebe.logstreams.state.StateController;
 import io.zeebe.msgpack.UnpackedObject;
 import io.zeebe.protocol.clientapi.RecordType;
@@ -35,7 +32,6 @@ public class TypedEventStreamProcessorBuilder {
   protected final TypedStreamEnvironment environment;
 
   protected StateController stateController;
-  protected List<ComposableSnapshotSupport> stateResources = new ArrayList<>();
 
   protected RecordProcessorMap eventProcessors = new RecordProcessorMap();
   protected List<StreamProcessorLifecycleAware> lifecycleListeners = new ArrayList<>();
@@ -120,18 +116,8 @@ public class TypedEventStreamProcessorBuilder {
 
   public TypedStreamProcessor build() {
 
-    final SnapshotSupport snapshotSupport;
-    if (!stateResources.isEmpty()) {
-      snapshotSupport =
-          new ComposedSnapshot(
-              stateResources.toArray(new ComposableSnapshotSupport[stateResources.size()]));
-    } else {
-      snapshotSupport = new NoopSnapshotSupport();
-    }
-
     return new TypedStreamProcessor(
         stateController,
-        snapshotSupport,
         environment.getOutput(),
         eventProcessors,
         lifecycleListeners,

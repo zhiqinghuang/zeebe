@@ -40,8 +40,6 @@ import io.zeebe.logstreams.processor.StreamProcessorContext;
 import io.zeebe.logstreams.processor.StreamProcessorController;
 import io.zeebe.logstreams.spi.SnapshotController;
 import io.zeebe.logstreams.spi.SnapshotStorage;
-import io.zeebe.logstreams.spi.SnapshotSupport;
-import io.zeebe.logstreams.state.StateController;
 import io.zeebe.logstreams.state.StateSnapshotController;
 import io.zeebe.logstreams.state.StateStorage;
 import io.zeebe.msgpack.UnpackedObject;
@@ -421,16 +419,6 @@ public class TestStreams {
 
     public SuspendableStreamProcessor(final StreamProcessor wrappedProcessor) {
       this.wrappedProcessor = wrappedProcessor;
-    }
-
-    @Override
-    public SnapshotSupport getStateResource() {
-      return wrappedProcessor.getStateResource();
-    }
-
-    @Override
-    public StateController getStateController() {
-      return wrappedProcessor.getStateController();
     }
 
     public void resume() {

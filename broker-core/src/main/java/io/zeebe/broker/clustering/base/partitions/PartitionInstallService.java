@@ -23,7 +23,6 @@ import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.RAFT_
 import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.followerPartitionServiceName;
 import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.leaderPartitionServiceName;
 import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.raftInstallServiceName;
-import static io.zeebe.broker.logstreams.LogStreamServiceNames.snapshotStorageServiceName;
 import static io.zeebe.broker.logstreams.LogStreamServiceNames.stateStorageFactoryServiceName;
 import static io.zeebe.raft.RaftServiceNames.leaderInitialEventCommittedServiceName;
 import static io.zeebe.raft.RaftServiceNames.raftServiceName;
@@ -31,7 +30,6 @@ import static io.zeebe.raft.RaftServiceNames.raftServiceName;
 import io.zeebe.broker.Loggers;
 import io.zeebe.broker.clustering.base.raft.RaftPersistentConfiguration;
 import io.zeebe.broker.clustering.base.topology.PartitionInfo;
-import io.zeebe.broker.logstreams.SnapshotStorageService;
 import io.zeebe.broker.logstreams.state.StateStorageFactory;
 import io.zeebe.broker.logstreams.state.StateStorageFactoryService;
 import io.zeebe.broker.system.configuration.BrokerCfg;
@@ -113,10 +111,6 @@ public class PartitionInstallService implements Service<Void>, RaftStateListener
             .logName(logName)
             .snapshotStorage(LogStreams.createFsSnapshotStore(snapshotPath).build())
             .buildWith(partitionInstall);
-
-    final SnapshotStorageService snapshotStorageService = new SnapshotStorageService(snapshotPath);
-    snapshotStorageServiceName = snapshotStorageServiceName(logName);
-    partitionInstall.createService(snapshotStorageServiceName, snapshotStorageService).install();
 
     final StateStorageFactoryService stateStorageFactoryService =
         new StateStorageFactoryService(configuration.getStatesDirectory());

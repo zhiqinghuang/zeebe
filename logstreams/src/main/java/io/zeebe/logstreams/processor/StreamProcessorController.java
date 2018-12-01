@@ -112,8 +112,6 @@ public class StreamProcessorController extends Actor {
 
   @Override
   protected void onActorStarting() {
-    streamProcessor.getStateResource().reset();
-
     final LogStream logStream = streamProcessorContext.getLogStream();
 
     final MetricsManager metricsManager = actorScheduler.getMetricsManager();

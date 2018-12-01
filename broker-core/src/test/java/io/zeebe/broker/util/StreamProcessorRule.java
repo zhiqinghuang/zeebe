@@ -97,16 +97,18 @@ public class StreamProcessorRule implements TestRule {
 
   public StreamProcessorControl initStreamProcessor(
       Function<TypedStreamEnvironment, StreamProcessor> factory) {
-    return streams.initStreamProcessor(STREAM_NAME, 0, () -> factory.apply(streamEnvironment));
+    return streams.initStreamProcessor(
+        STREAM_NAME, 0, new ZeebeState(), () -> factory.apply(streamEnvironment));
   }
 
   public StreamProcessorControl initStreamProcessor(
       BiFunction<TypedEventStreamProcessorBuilder, ZeebeState, StreamProcessor> factory) {
+    final ZeebeState zeebeState = new ZeebeState();
     return streams.initStreamProcessor(
         STREAM_NAME,
         0,
+        zeebeState,
         () -> {
-          final ZeebeState zeebeState = new ZeebeState();
           final TypedEventStreamProcessorBuilder processorBuilder =
               streamEnvironment
                   .newStreamProcessor()

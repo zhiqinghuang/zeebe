@@ -258,4 +258,8 @@ public class ExporterStreamProcessor implements StreamProcessor {
       return 0;
     }
   }
+
+  public ExporterStreamProcessorState getState() {
+    return state;
+  }
 }

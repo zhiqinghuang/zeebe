@@ -31,8 +31,6 @@ import java.util.function.Predicate;
 public class TypedEventStreamProcessorBuilder {
   protected final TypedStreamEnvironment environment;
 
-  protected StateController stateController;
-
   protected RecordProcessorMap eventProcessors = new RecordProcessorMap();
   protected List<StreamProcessorLifecycleAware> lifecycleListeners = new ArrayList<>();
 
@@ -103,7 +101,6 @@ public class TypedEventStreamProcessorBuilder {
 
   public TypedEventStreamProcessorBuilder withStateController(
       final StateController stateController) {
-    this.stateController = stateController;
     withListener(
         new StreamProcessorLifecycleAware() {
           @Override
@@ -117,7 +114,6 @@ public class TypedEventStreamProcessorBuilder {
   public TypedStreamProcessor build() {
 
     return new TypedStreamProcessor(
-        stateController,
         environment.getOutput(),
         eventProcessors,
         lifecycleListeners,

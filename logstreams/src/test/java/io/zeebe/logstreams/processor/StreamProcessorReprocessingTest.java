@@ -90,7 +90,6 @@ public class StreamProcessorReprocessingTest {
       StreamProcessor streamProcessor) {
     return LogStreams.createStreamProcessor(PROCESSOR_NAME, PROCESSOR_ID, streamProcessor)
         .logStream(logStreamRule.getLogStream())
-        .snapshotStorage(logStreamRule.getSnapshotStorage())
         .actorScheduler(logStreamRule.getActorScheduler())
         .serviceContainer(logStreamRule.getServiceContainer())
         .eventFilter(eventFilter)
@@ -276,7 +275,6 @@ public class StreamProcessorReprocessingTest {
     final StreamProcessorBuilder builder =
         LogStreams.createStreamProcessor("read-only", PROCESSOR_ID, streamProcessor)
             .logStream(logStreamRule.getLogStream())
-            .snapshotStorage(logStreamRule.getSnapshotStorage())
             .actorScheduler(logStreamRule.getActorScheduler())
             .serviceContainer(logStreamRule.getServiceContainer())
             .readOnly(true);

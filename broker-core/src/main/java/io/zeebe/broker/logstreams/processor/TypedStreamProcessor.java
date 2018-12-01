@@ -23,7 +23,6 @@ import io.zeebe.logstreams.log.LoggedEvent;
 import io.zeebe.logstreams.processor.EventProcessor;
 import io.zeebe.logstreams.processor.StreamProcessor;
 import io.zeebe.logstreams.processor.StreamProcessorContext;
-import io.zeebe.logstreams.state.StateController;
 import io.zeebe.msgpack.UnpackedObject;
 import io.zeebe.protocol.clientapi.ValueType;
 import io.zeebe.protocol.impl.record.RecordMetadata;
@@ -36,9 +35,6 @@ import java.util.List;
 
 @SuppressWarnings({"unchecked"})
 public class TypedStreamProcessor implements StreamProcessor {
-
-  // TODO: remove once we remove snapshot support
-  protected StateController stateController;
 
   protected final ServerOutput output;
   protected final RecordProcessorMap recordProcessors;
@@ -57,14 +53,12 @@ public class TypedStreamProcessor implements StreamProcessor {
   private StreamProcessorContext streamProcessorContext;
 
   public TypedStreamProcessor(
-      final StateController stateController,
       final ServerOutput output,
       final RecordProcessorMap recordProcessors,
       final List<StreamProcessorLifecycleAware> lifecycleListeners,
       final EnumMap<ValueType, Class<? extends UnpackedObject>> eventRegistry,
       final KeyGenerator keyGenerator,
       final TypedStreamEnvironment environment) {
-    this.stateController = stateController;
     this.output = output;
     this.recordProcessors = recordProcessors;
     this.keyGenerator = keyGenerator;
@@ -98,11 +92,6 @@ public class TypedStreamProcessor implements StreamProcessor {
   @Override
   public void onClose() {
     lifecycleListeners.forEach(e -> e.onClose());
-  }
-
-  @Override
-  public StateController getStateController() {
-    return stateController;
   }
 
   @Override

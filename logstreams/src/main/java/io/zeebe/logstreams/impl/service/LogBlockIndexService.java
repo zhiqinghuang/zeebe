@@ -16,18 +16,24 @@
 package io.zeebe.logstreams.impl.service;
 
 import io.zeebe.logstreams.impl.log.index.LogBlockIndex;
+import io.zeebe.logstreams.state.StateController;
 import io.zeebe.servicecontainer.Service;
 import io.zeebe.servicecontainer.ServiceStartContext;
 import io.zeebe.servicecontainer.ServiceStopContext;
-import java.nio.ByteBuffer;
-import org.agrona.concurrent.UnsafeBuffer;
 
 public class LogBlockIndexService implements Service<LogBlockIndex> {
   private LogBlockIndex logBlockIndex;
+  private final StateController stateController;
+
+  public LogBlockIndexService(StateController controller)
+  {
+    stateController = controller;
+  }
+
 
   @Override
   public void start(ServiceStartContext startContext) {
-    logBlockIndex = new LogBlockIndex(100000, (c) -> new UnsafeBuffer(ByteBuffer.allocate(c)));
+    logBlockIndex = new LogBlockIndex(stateController);
   }
 
   @Override

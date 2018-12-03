@@ -34,6 +34,7 @@ import io.zeebe.logstreams.impl.service.LogStreamService;
 import io.zeebe.logstreams.log.LogStream;
 import io.zeebe.logstreams.spi.LogStorage;
 import io.zeebe.logstreams.spi.SnapshotStorage;
+import io.zeebe.logstreams.state.StateController;
 import io.zeebe.servicecontainer.CompositeServiceBuilder;
 import io.zeebe.servicecontainer.ServiceContainer;
 import io.zeebe.servicecontainer.ServiceName;
@@ -240,7 +241,15 @@ public class LogStreamBuilder {
         new FsLogStorageService(storageConfig, partitionId, logStorageStubber);
     installOperation.createService(logStorageServiceName, logStorageService).install();
 
-    final LogBlockIndexService logBlockIndexService = new LogBlockIndexService();
+    StateController controller = new StateController();
+
+    try {
+      controller.open(new File(getLogDirectory()), false);
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+
+    final LogBlockIndexService logBlockIndexService = new LogBlockIndexService(controller);
     installOperation.createService(logBlockIndexServiceName, logBlockIndexService).install();
 
     final LogBlockIndexWriterService logBlockIndexWriterService =

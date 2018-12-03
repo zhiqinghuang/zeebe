@@ -15,19 +15,17 @@
  */
 package io.zeebe.logstreams.impl.log.index;
 
-import static io.zeebe.logstreams.impl.log.index.LogBlockIndexDescriptor.dataOffset;
 import static io.zeebe.logstreams.impl.log.index.LogBlockIndexDescriptor.entryAddressOffset;
-import static io.zeebe.logstreams.impl.log.index.LogBlockIndexDescriptor.entryLength;
 import static io.zeebe.logstreams.impl.log.index.LogBlockIndexDescriptor.entryLogPositionOffset;
 import static io.zeebe.logstreams.impl.log.index.LogBlockIndexDescriptor.entryOffset;
 import static io.zeebe.logstreams.impl.log.index.LogBlockIndexDescriptor.indexSizeOffset;
 
-import io.zeebe.logstreams.spi.SnapshotSupport;
-import io.zeebe.util.StreamUtil;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.util.function.Function;
-import org.agrona.concurrent.AtomicBuffer;
+import io.zeebe.logstreams.rocksdb.ZbRocksDb;
+import io.zeebe.logstreams.state.StateController;
+import org.agrona.MutableDirectBuffer;
+import org.agrona.concurrent.UnsafeBuffer;
+import org.rocksdb.ColumnFamilyHandle;
+import org.rocksdb.RocksDB;
 
 /**
  * Block index, mapping an event's position to the physical address of the block in which it resides
@@ -41,20 +39,16 @@ import org.agrona.concurrent.AtomicBuffer;
  * block in which it resides in storage. Then, the block can be scanned for the event position
  * requested.
  */
-public class LogBlockIndex implements SnapshotSupport {
-  protected final AtomicBuffer indexBuffer;
-
-  protected final int capacity;
-
+public class LogBlockIndex {
+  private final ColumnFamilyHandle handle;
+  protected final ZbRocksDb rocksDb;
   protected long lastVirtualPosition = -1;
 
-  public LogBlockIndex(int capacity, Function<Integer, AtomicBuffer> bufferAllocator) {
-    final int requiredBufferCapacity = dataOffset() + (capacity * entryLength());
+  private final MutableDirectBuffer value = new UnsafeBuffer(new byte[Long.BYTES]);
 
-    this.indexBuffer = bufferAllocator.apply(requiredBufferCapacity);
-    this.capacity = capacity;
-
-    reset();
+  public LogBlockIndex(StateController controller) {
+    handle = controller.getColumnFamilyHandle(RocksDB.DEFAULT_COLUMN_FAMILY);
+    this.rocksDb = controller.getDb();
   }
 
   /**
@@ -67,7 +61,29 @@ public class LogBlockIndex implements SnapshotSupport {
    */
   public long lookupBlockAddress(long position) {
     final int offset = lookupOffset(position);
-    return offset >= 0 ? indexBuffer.getLong(entryAddressOffset(offset)) : offset;
+    final int entryAddressOffset = entryAddressOffset(offset);
+
+    return offset >= 0 ? getLong(entryAddressOffset) : offset;
+  }
+
+  public long getLong(int entryAddressOffset) {
+    rocksDb.get(handle, entryAddressOffset, value);
+    return value.getLong(0);
+  }
+
+  public void putLong(int entryAddressOffset, long longValue) {
+    value.putLong(0, longValue);
+    rocksDb.put(handle, entryAddressOffset, value.byteArray(), 0, Long.BYTES);
+  }
+
+  public int getInt(int index) {
+    rocksDb.get(handle, index, value);
+    return value.getInt(0);
+  }
+
+  public void putInt(int index, int intValue) {
+    value.putInt(0, intValue);
+    rocksDb.put(handle, index, value.byteArray(), 0, Integer.BYTES);
   }
 
   /**
@@ -80,7 +96,7 @@ public class LogBlockIndex implements SnapshotSupport {
    */
   public long lookupBlockPosition(long position) {
     final int offset = lookupOffset(position);
-    return offset >= 0 ? indexBuffer.getLong(entryLogPositionOffset(offset)) : offset;
+    return offset >= 0 ? getLong(entryLogPositionOffset(offset)) : offset;
   }
 
   /**
@@ -114,7 +130,7 @@ public class LogBlockIndex implements SnapshotSupport {
 
     if (low == high) {
       final int entryOffset = entryOffset(low);
-      final long entryValue = indexBuffer.getLong(entryLogPositionOffset(entryOffset));
+      final long entryValue = getLong(entryLogPositionOffset(entryOffset));
 
       if (entryValue <= position) {
         idx = low;
@@ -131,9 +147,8 @@ public class LogBlockIndex implements SnapshotSupport {
         idx = mid;
         break;
       } else {
-        final long entryValue = indexBuffer.getLong(entryLogPositionOffset(entryOffset));
-        final long nextEntryValue =
-            indexBuffer.getLong(entryLogPositionOffset(entryOffset(mid + 1)));
+        final long entryValue = getLong(entryLogPositionOffset(entryOffset));
+        final long nextEntryValue = getLong(entryLogPositionOffset(entryOffset(mid + 1)));
 
         if (entryValue <= position && position < nextEntryValue) {
           idx = mid;
@@ -158,16 +173,9 @@ public class LogBlockIndex implements SnapshotSupport {
    * @return the new size of the index.
    */
   public int addBlock(long logPosition, long storageAddr) {
-    final int currentIndexSize =
-        indexBuffer.getInt(indexSizeOffset()); // volatile get not necessary
+    final int currentIndexSize = getInt(indexSizeOffset()); // volatile get not necessary
     final int entryOffset = entryOffset(currentIndexSize);
     final int newIndexSize = 1 + currentIndexSize;
-
-    if (newIndexSize > capacity) {
-      throw new RuntimeException(
-          String.format(
-              "LogBlockIndex capacity of %d entries reached. Cannot add new block.", capacity));
-    }
 
     if (lastVirtualPosition >= logPosition) {
       final String errorMessage =
@@ -180,23 +188,18 @@ public class LogBlockIndex implements SnapshotSupport {
     lastVirtualPosition = logPosition;
 
     // write next entry
-    indexBuffer.putLong(entryLogPositionOffset(entryOffset), logPosition);
-    indexBuffer.putLong(entryAddressOffset(entryOffset), storageAddr);
+    putLong(entryLogPositionOffset(entryOffset), logPosition);
+    putLong(entryAddressOffset(entryOffset), storageAddr);
 
     // increment size
-    indexBuffer.putIntOrdered(indexSizeOffset(), newIndexSize);
+    putInt(indexSizeOffset(), newIndexSize);
 
     return newIndexSize;
   }
 
   /** @return the current size of the index */
   public int size() {
-    return indexBuffer.getIntVolatile(indexSizeOffset());
-  }
-
-  /** @return the capacity of the index */
-  public int capacity() {
-    return capacity;
+    return getInt(indexSizeOffset());
   }
 
   public long getLogPosition(int idx) {
@@ -204,7 +207,7 @@ public class LogBlockIndex implements SnapshotSupport {
 
     final int entryOffset = entryOffset(idx);
 
-    return indexBuffer.getLong(entryLogPositionOffset(entryOffset));
+    return getLong(entryLogPositionOffset(entryOffset));
   }
 
   public long getAddress(int idx) {
@@ -212,7 +215,7 @@ public class LogBlockIndex implements SnapshotSupport {
 
     final int entryOffset = entryOffset(idx);
 
-    return indexBuffer.getLong(entryAddressOffset(entryOffset));
+    return getLong(entryAddressOffset(entryOffset));
   }
 
   private static void boundsCheck(int idx, int size) {
@@ -220,29 +223,5 @@ public class LogBlockIndex implements SnapshotSupport {
       throw new IllegalArgumentException(
           String.format("Index out of bounds. index=%d, size=%d.", idx, size));
     }
-  }
-
-  @Override
-  public long writeSnapshot(OutputStream outputStream) throws Exception {
-    StreamUtil.write(indexBuffer, outputStream);
-    return indexBuffer.capacity();
-  }
-
-  @Override
-  public void recoverFromSnapshot(InputStream inputStream) throws Exception {
-    final byte[] byteArray = StreamUtil.read(inputStream);
-
-    indexBuffer.putBytes(0, byteArray);
-  }
-
-  @Override
-  public void reset() {
-    // verify alignment to ensure atomicity of updates to the index metadata
-    indexBuffer.verifyAlignment();
-
-    // set initial size
-    indexBuffer.putIntVolatile(indexSizeOffset(), 0);
-
-    indexBuffer.setMemory(dataOffset(), capacity * entryLength(), (byte) 0);
   }
 }

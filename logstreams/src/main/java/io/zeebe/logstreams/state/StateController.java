@@ -117,7 +117,7 @@ public class StateController implements AutoCloseable {
     return ZbRocksDb.open(options, dbDirectory.getAbsolutePath());
   }
 
-  protected ZbRocksDb open(
+  public ZbRocksDb open(
       final File dbDirectory, final boolean reopen, List<byte[]> columnFamilyNames)
       throws Exception {
     if (!isOpened) {

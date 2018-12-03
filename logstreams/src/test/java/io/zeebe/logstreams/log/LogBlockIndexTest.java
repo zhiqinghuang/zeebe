@@ -18,14 +18,14 @@ package io.zeebe.logstreams.log;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.zeebe.logstreams.impl.log.index.LogBlockIndex;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.nio.ByteBuffer;
-import org.agrona.concurrent.UnsafeBuffer;
+import io.zeebe.logstreams.state.StateController;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
+import org.junit.rules.TemporaryFolder;
 
 public class LogBlockIndexTest {
   private static final int CAPACITY = 111;
@@ -33,23 +33,24 @@ public class LogBlockIndexTest {
   private LogBlockIndex blockIndex;
 
   @Rule public ExpectedException exception = ExpectedException.none();
+  @Rule public TemporaryFolder folder = new TemporaryFolder();
 
   @Before
-  public void setup() {
+  public void setup() throws Exception {
     blockIndex = createNewBlockIndex(CAPACITY);
   }
 
-  protected LogBlockIndex createNewBlockIndex(int capacity) {
-    return new LogBlockIndex(
-        capacity,
-        c -> {
-          return new UnsafeBuffer(ByteBuffer.allocate(c));
-        });
+  protected LogBlockIndex createNewBlockIndex(int capacity) throws Exception {
+    StateController stateController = new StateController();
+    List<byte[]> descriptors = new ArrayList<>();
+    stateController.open(folder.newFolder(), false, descriptors);
+
+    return new LogBlockIndex(stateController);
   }
 
   @Test
   public void shouldAddBlock() {
-    final int capacity = blockIndex.capacity();
+    final int capacity = CAPACITY;
 
     // when
 
@@ -76,7 +77,7 @@ public class LogBlockIndexTest {
   @Test
   public void shouldNotAddBlockIfCapacityReached() {
     // given
-    final int capacity = blockIndex.capacity();
+    final int capacity = CAPACITY;
 
     while (capacity > blockIndex.size()) {
       blockIndex.addBlock(blockIndex.size(), 0);
@@ -148,7 +149,7 @@ public class LogBlockIndexTest {
 
   @Test
   public void shouldLookupBlocks() {
-    final int capacity = blockIndex.capacity();
+    final int capacity = CAPACITY;
 
     // given
 
@@ -196,7 +197,7 @@ public class LogBlockIndexTest {
 
   @Test
   public void shouldLookupBlockPositions() {
-    final int capacity = blockIndex.capacity();
+    final int capacity = CAPACITY;
 
     // given
 
@@ -222,7 +223,7 @@ public class LogBlockIndexTest {
 
   @Test
   public void shouldRecoverIndexFromSnapshot() throws Exception {
-    final int capacity = blockIndex.capacity();
+    final int capacity = CAPACITY;
 
     for (int i = 0; i < capacity; i++) {
       final int pos = i + 1;
@@ -232,13 +233,7 @@ public class LogBlockIndexTest {
     }
 
     // when
-    final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-    blockIndex.writeSnapshot(outputStream);
-
     final LogBlockIndex newBlockIndex = createNewBlockIndex(CAPACITY);
-
-    final ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStream.toByteArray());
-    newBlockIndex.recoverFromSnapshot(inputStream);
 
     // then
     assertThat(newBlockIndex.size()).isEqualTo(blockIndex.size());

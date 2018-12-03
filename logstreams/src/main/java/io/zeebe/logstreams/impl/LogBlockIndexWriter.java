@@ -143,8 +143,6 @@ public class LogBlockIndexWriter extends Actor {
     try {
       final ReadableSnapshot lastSnapshot = snapshotStorage.getLastSnapshot(name);
       if (lastSnapshot != null) {
-        lastSnapshot.recoverFromSnapshot(blockIndex);
-
         final long snapshotPosition = lastSnapshot.getPosition();
 
         final long snapshotBlockAddress = blockIndex.lookupBlockAddress(snapshotPosition);
@@ -159,7 +157,7 @@ public class LogBlockIndexWriter extends Actor {
       }
 
       if (nextAddress == INVALID_ADDRESS) {
-        blockIndex.reset();
+        //        blockIndex.reset();
 
         nextAddress = logStorage.getFirstBlockAddress();
         lastBlockAddress = 0;
@@ -290,7 +288,6 @@ public class LogBlockIndexWriter extends Actor {
 
         snapshotWriter = snapshotStorage.createSnapshot(name, lastBlockEventPosition);
 
-        snapshotWriter.writeSnapshot(blockIndex);
         snapshotWriter.commit();
 
         snapshotEventPosition = lastBlockEventPosition;

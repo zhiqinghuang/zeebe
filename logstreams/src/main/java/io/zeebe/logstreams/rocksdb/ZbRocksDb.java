@@ -132,6 +132,11 @@ public class ZbRocksDb extends RocksDB {
     }
   }
 
+  public void put(ColumnFamilyHandle columnFamily, int key, byte[] value, int offset, int length) {
+    setKey(key);
+    put(columnFamily, longKeyBuffer.byteArray(), 0, Integer.BYTES, value, offset, length);
+  }
+
   public void put(ColumnFamilyHandle columnFamily, DirectBuffer key, DirectBuffer value) {
     EnsureUtil.ensureArrayBacked(key, value);
     put(
@@ -190,6 +195,18 @@ public class ZbRocksDb extends RocksDB {
   public int get(ColumnFamilyHandle columnFamily, long key, MutableDirectBuffer value) {
     setKey(key);
     return get(columnFamily, longKeyBuffer, value);
+  }
+
+  public int get(ColumnFamilyHandle columnFamily, int key, MutableDirectBuffer value) {
+    setKey(key);
+    return get(
+        columnFamily,
+        longKeyBuffer.byteArray(),
+        0,
+        Integer.BYTES,
+        value.byteArray(),
+        value.wrapAdjustment(),
+        value.capacity());
   }
 
   public void delete(ColumnFamilyHandle columnFamily, byte[] key, int keyOffset, int keyLength) {
@@ -343,6 +360,10 @@ public class ZbRocksDb extends RocksDB {
 
   private void setKey(final long key) {
     longKeyBuffer.putLong(0, key, STATE_BYTE_ORDER);
+  }
+
+  private void setKey(final int key) {
+    longKeyBuffer.putInt(0, key, STATE_BYTE_ORDER);
   }
 
   static long getNativeHandle(final RocksObject object) {

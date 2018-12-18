@@ -12,7 +12,7 @@ spec:
       image: maven:3.5-jdk-8
       command: ["cat"]
       securityContext:
-        runAsUser: 1000
+        runAsUser: 10000
       tty: true
       env:
         - name: LIMITS_CPU

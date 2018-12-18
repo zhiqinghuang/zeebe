@@ -5,6 +5,8 @@ metadata:
   labels:
     agent: zeebe-ci-build
 spec:
+  securityContext:
+    runAsUser: 1000
   nodeSelector:
     cloud.google.com/gke-nodepool: slaves
   containers:

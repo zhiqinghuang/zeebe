@@ -5,14 +5,14 @@ metadata:
   labels:
     agent: zeebe-ci-build
 spec:
-  securityContext:
-    runAsUser: 1000
   nodeSelector:
     cloud.google.com/gke-nodepool: slaves
   containers:
     - name: maven
       image: maven:3.5-jdk-8
       command: ["cat"]
+      securityContext:
+        runAsUser: 1000
       tty: true
       env:
         - name: LIMITS_CPU

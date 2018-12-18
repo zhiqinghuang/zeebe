@@ -21,9 +21,6 @@ spec:
           value: |
             -XX:+UnlockExperimentalVMOptions
             -XX:+UseCGroupMemoryLimitForHeap
-        - name: ES_JAVA_OPTS
-          value: |
-            -Des.insecure.allow.root=true
       resources:
         limits:
           cpu: 4

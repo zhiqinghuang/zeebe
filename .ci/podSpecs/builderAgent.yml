@@ -11,6 +11,10 @@ spec:
     - name: maven
       image: maven:3.5-jdk-8
       command: ["cat"]
+      # BLACK MAGIC
+      # Elasticsearch cannot run as root but the official maven has only root.
+      # For this reason we run this container with the same uid of the jenkins-slave image
+      # In this way the jenkins user will run the command instead of root
       securityContext:
         runAsUser: 10000
       tty: true
@@ -26,10 +30,10 @@ spec:
       resources:
         limits:
           cpu: 4
-          memory: 32Gi
+          memory: 16Gi
         requests:
           cpu: 4
-          memory: 8Gi
+          memory: 16Gi
     - name: maven-it
       image: maven:3.5-jdk-8
       command: ["cat"]
@@ -46,7 +50,7 @@ spec:
       resources:
         limits:
           cpu: 4
-          memory: 32Gi
+          memory: 16Gi
         requests:
           cpu: 4
           memory: 8Gi
@@ -56,8 +60,8 @@ spec:
       tty: true
       resources:
         limits:
-          cpu: 4
-          memory: 32Gi
-        requests:
-          cpu: 4
+          cpu: 1
           memory: 8Gi
+        requests:
+          cpu: 1
+          memory: 2Gi

@@ -74,7 +74,7 @@ pipeline {
               container('maven-it') {
                 sh '''
                   JAVA_TOOL_OPTIONS="$JAVA_TOOL_OPTIONS -XX:MaxRAMFraction=2" \
-                  mvn -B -T$LIMITS_CPU -s settings.xml integration-test -DskipTests -P jmh
+                  mvn -B -s settings.xml integration-test -DskipTests -P jmh
                   apt-get -qq update && apt-get install -qq -y jq
                   cat **/*/jmh-result.json | jq -s add > target/jmh-result.json
                 '''

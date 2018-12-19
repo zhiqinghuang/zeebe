@@ -10,6 +10,8 @@ def storeNumOfBuilds() {
 
 def joinJmhResults = '''\
 #!/bin/bash -x
+apt-get -qq update
+apt-get install -qq -y jq
 cat **/*/jmh-result.json | jq -s add > target/jmh-result.json
 '''
 

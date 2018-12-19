@@ -10,9 +10,6 @@ def storeNumOfBuilds() {
 
 def joinJmhResults = '''\
 #!/bin/bash -x
-apt-get -qq update
-apt-get install -qq -y jq
-cat **/*/jmh-result.json | jq -s add > target/jmh-result.json
 '''
 
 pipeline {
@@ -75,17 +72,17 @@ pipeline {
             //when { anyOf { branch 'master'; branch 'develop' } }
             steps {
               container('maven-it') {
-                // maxramfraction = limits_cpu+1 because there are limits_cpu surefire threads + one maven thread
                 sh '''
                   JAVA_TOOL_OPTIONS="$JAVA_TOOL_OPTIONS -XX:MaxRAMFraction=2" \
                   mvn -B -s settings.xml integration-test -DskipTests -P jmh
+                  apt-get -qq update && apt-get install -qq -y jq
+                  cat **/*/jmh-result.json | jq -s add > target/jmh-result.json
                 '''
               }
             }
 
             post {
               success {
-                sh joinJmhResults
                 jmhReport 'target/jmh-result.json'
               }
             }

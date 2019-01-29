@@ -85,8 +85,8 @@ public class AtomixService implements Service<Atomix> {
         .getMembershipService()
         .addListener(mEvent -> LOG.info("Member {} receives {}", localMemberId, mEvent.toString()));
 
-    final CompletableFuture<Void> startFuture = atomix.start();
-    startContext.async(mapCompletableFuture(startFuture));
+//    final CompletableFuture<Void> startFuture = atomix.start();
+//    startContext.async(mapCompletableFuture(startFuture));
   }
 
   @Override

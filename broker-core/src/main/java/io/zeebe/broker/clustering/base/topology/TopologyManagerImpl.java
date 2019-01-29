@@ -72,7 +72,7 @@ public class TopologyManagerImpl extends Actor
       new KnownPartitionsSyncHandler();
 
   private final Topology topology;
-  private final Gossip gossip;
+  //private final Gossip gossip;
   private final Atomix atomix;
 
   private List<TopologyMemberListener> topologyMemberListers = new ArrayList<>();
@@ -80,7 +80,7 @@ public class TopologyManagerImpl extends Actor
 
   public TopologyManagerImpl(
       Gossip gossip, Atomix atomix, NodeInfo localBroker, ClusterCfg clusterCfg) {
-    this.gossip = gossip;
+//    this.gossip = gossip;
     this.atomix = atomix;
     this.topology =
         new Topology(
@@ -110,8 +110,8 @@ public class TopologyManagerImpl extends Actor
 
   @Override
   protected void onActorClosing() {
-    gossip.removeCustomEventListener(partitionChangeListener);
-    gossip.removeCustomEventListener(contactPointsChangeListener);
+    //gossip.removeCustomEventListener(partitionChangeListener);
+    //gossip.removeCustomEventListener(contactPointsChangeListener);
 
     // remove gossip sync handlers?
   }
@@ -164,27 +164,20 @@ public class TopologyManagerImpl extends Actor
     switch (clusterMembershipEvent.type()) {
       case METADATA_CHANGED:
         io.atomix.cluster.Member node = clusterMembershipEvent.subject();
-        Properties properties = node.properties();
-        for (String p : properties.stringPropertyNames()) {
-          if (p.startsWith("partition")) {
-            int partitionId = Integer.parseInt(p.split("-")[1]);
-            PartitionInfo partitionInfo =
-                topology.updatePartition(
-                    partitionId,
-                    0,
-                    topology.getMember(Integer.parseInt(node.id().id())),
-                    RaftState.valueOf(properties.getProperty(p)));
-
-            notifyPartitionUpdated(
-                partitionInfo, topology.getMember(Integer.parseInt(node.id().id())));
-          }
-        }
+        LOG.info(
+            "Im node {}. metadata of member {} changed",
+            atomix.getMembershipService().getLocalMember().id(),
+            node.id());
+        updatePartitionInfo(node);
         break;
       case MEMBER_ADDED:
         io.atomix.cluster.Member newNode = clusterMembershipEvent.subject();
         Properties newProperties = newNode.properties();
 
-        LOG.info("Memeber Added {}", newNode.id());
+        LOG.info(
+            "Im node {}. new member {} added",
+            atomix.getMembershipService().getLocalMember().id(),
+            newNode.id());
         String replicationAddress = newProperties.getProperty("replicationAddress");
         ObjectMapper mapper = new ObjectMapper();
         String managementAddress = newProperties.getProperty("managementAddress");
@@ -207,12 +200,42 @@ public class TopologyManagerImpl extends Actor
                   new SocketAddress(replication),
                   new SocketAddress(subscription));
           topology.addMember(nodeInfo);
-
           notifyMemberAdded(nodeInfo);
+
+          updatePartitionInfo(newNode);
 
         } catch (IOException e) {
           e.printStackTrace();
         }
+        break;
+      default:
+        LOG.info(
+            "Im node {}, event received from {} {}",
+            atomix.getMembershipService().getLocalMember().id(),
+            clusterMembershipEvent.subject().id(),
+            clusterMembershipEvent.type());
+    }
+
+    LOG.info(
+        "Im node {}. Topology {}",
+        atomix.getMembershipService().getLocalMember().id(),
+        topology.asDto().toString());
+  }
+
+  private void updatePartitionInfo(io.atomix.cluster.Member node) {
+    Properties properties = node.properties();
+    for (String p : properties.stringPropertyNames()) {
+      if (p.startsWith("partition")) {
+        int partitionId = Integer.parseInt(p.split("-")[1]);
+        PartitionInfo partitionInfo =
+            topology.updatePartition(
+                partitionId,
+                0,
+                topology.getMember(Integer.parseInt(node.id().id())),
+                RaftState.valueOf(properties.getProperty(p)));
+
+        notifyPartitionUpdated(partitionInfo, topology.getMember(Integer.parseInt(node.id().id())));
+      }
     }
   }
 
@@ -311,7 +334,8 @@ public class TopologyManagerImpl extends Actor
     final MutableDirectBuffer eventBuffer = new ExpandableArrayBuffer();
     final int length = writePartitions(topology.getLocal(), eventBuffer, 0);
 
-    gossip.publishEvent(PARTITIONS_EVENT_TYPE, eventBuffer, 0, length);
+   // gossip.publishEvent(PARTITIONS_EVENT_TYPE, eventBuffer, 0, length);
+
     for (PartitionInfo p : topology.getLocal().getLeaders()) {
       atomix
           .getMembershipService()

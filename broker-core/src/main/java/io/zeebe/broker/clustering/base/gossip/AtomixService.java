@@ -23,6 +23,7 @@ import io.atomix.cluster.discovery.BootstrapDiscoveryProvider;
 import io.atomix.core.Atomix;
 import io.atomix.core.profile.Profile;
 import io.atomix.utils.net.Address;
+import io.zeebe.broker.Loggers;
 import io.zeebe.broker.system.configuration.BrokerCfg;
 import io.zeebe.broker.system.configuration.ClusterCfg;
 import io.zeebe.servicecontainer.Service;
@@ -32,8 +33,12 @@ import io.zeebe.util.sched.future.ActorFuture;
 import io.zeebe.util.sched.future.CompletableActorFuture;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import org.slf4j.Logger;
 
 public class AtomixService implements Service<Atomix> {
+
+  private static final Logger LOG = Loggers.CLUSTERING_LOGGER;
 
   private final BrokerCfg configuration;
   private Atomix atomix;
@@ -44,9 +49,6 @@ public class AtomixService implements Service<Atomix> {
 
   @Override
   public void start(ServiceStartContext startContext) {
-
-    //    startContext.run(
-    //        () -> {
     final ClusterCfg clusterCfg = configuration.getCluster();
 
     final int stepSize = 15;
@@ -65,7 +67,10 @@ public class AtomixService implements Service<Atomix> {
           final String[] address = contactAddress.split(":");
           final int memberPort = Integer.parseInt(address[1]) + stepSize;
 
-          nodes.add(Node.builder().withAddress(Address.from(address[0], memberPort)).build());
+          final Node node =
+              Node.builder().withAddress(Address.from(address[0], memberPort)).build();
+          LOG.info("Node to contact: {}", node.address());
+          nodes.add(node);
         });
 
     atomix =
@@ -73,7 +78,7 @@ public class AtomixService implements Service<Atomix> {
             .withMemberId(Integer.toString(nodeId))
             .withAddress(Address.from(host, port))
             .withMembershipProvider(builder.withNodes(nodes).build())
-            .withProfiles(Profile.dataGrid())
+            .withProfiles(Profile.dataGrid(1))
             .build();
 
     final ActorFuture<Void> atomixStartFuture = new CompletableActorFuture<>();
@@ -85,18 +90,39 @@ public class AtomixService implements Service<Atomix> {
               atomixStartFuture.completeExceptionally(t);
               return null;
             });
-    //        });
 
-    startContext.async(atomixStartFuture);
+    atomix
+        .getMembershipService()
+        .addListener(
+            (membershipEvent -> {
+              LOG.info(membershipEvent.toString());
+            }));
+
+    final CompletableFuture<Void> startFuture = atomix.start();
+    startContext.async(mapCompletableFuture(startFuture));
   }
 
   @Override
   public void stop(ServiceStopContext stopContext) {
-    atomix.stop();
+    final CompletableFuture<Void> stopFuture = atomix.stop();
+    stopContext.async(mapCompletableFuture(stopFuture));
   }
 
   @Override
   public Atomix get() {
     return atomix;
+  }
+
+  private ActorFuture<Void> mapCompletableFuture(CompletableFuture<Void> atomixFuture) {
+    final ActorFuture<Void> mappedActorFuture = new CompletableActorFuture<>();
+
+    atomixFuture
+        .thenAccept(mappedActorFuture::complete)
+        .exceptionally(
+            t -> {
+              mappedActorFuture.completeExceptionally(t);
+              return null;
+            });
+    return mappedActorFuture;
   }
 }

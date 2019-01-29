@@ -61,6 +61,7 @@ public class AtomixService implements Service<Atomix> {
 
     final BootstrapDiscoveryBuilder builder = BootstrapDiscoveryProvider.builder();
 
+    final String localMemberId = Integer.toString(nodeId);
     final List<Node> nodes = new ArrayList<>();
     initialContactPoints.forEach(
         contactAddress -> {
@@ -69,34 +70,24 @@ public class AtomixService implements Service<Atomix> {
 
           final Node node =
               Node.builder().withAddress(Address.from(address[0], memberPort)).build();
-          LOG.info("Node to contact: {}", node.address());
+          LOG.info("Member {} will contact node: {}", localMemberId, node.address());
           nodes.add(node);
         });
 
     atomix =
         Atomix.builder()
-            .withMemberId(Integer.toString(nodeId))
+            .withClusterId("zeebe-cluster")
+            .withMemberId(localMemberId)
             .withAddress(Address.from(host, port))
             .withMembershipProvider(builder.withNodes(nodes).build())
             .withProfiles(Profile.dataGrid(1))
             .build();
 
-    final ActorFuture<Void> atomixStartFuture = new CompletableActorFuture<>();
-    atomix
-        .start()
-        .thenAccept(atomixStartFuture::complete)
-        .exceptionally(
-            t -> {
-              atomixStartFuture.completeExceptionally(t);
-              return null;
-            });
-
     atomix
         .getMembershipService()
         .addListener(
-            (membershipEvent -> {
-              LOG.info(membershipEvent.toString());
-            }));
+            (membershipEvent ->
+                LOG.info("Member {} received: {}", localMemberId, membershipEvent.toString())));
 
     final CompletableFuture<Void> startFuture = atomix.start();
     startContext.async(mapCompletableFuture(startFuture));

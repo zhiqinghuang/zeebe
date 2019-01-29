@@ -78,6 +78,7 @@ public class ClusterComponent implements Component {
     baseLayerInstall
         .createService(TOPOLOGY_MANAGER_SERVICE, topologyManagerService)
         .dependency(GOSSIP_SERVICE, topologyManagerService.getGossipInjector())
+      .dependency(ATOMIX_SERVICE, topologyManagerService.getAtomixInjector())
         .groupReference(RAFT_SERVICE_GROUP, topologyManagerService.getRaftReference())
         .install();
 

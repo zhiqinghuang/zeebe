@@ -22,6 +22,10 @@ import static io.zeebe.broker.clustering.base.gossip.GossipCustomEventEncoding.r
 import static io.zeebe.broker.clustering.base.gossip.GossipCustomEventEncoding.writeNodeInfo;
 import static io.zeebe.broker.clustering.base.gossip.GossipCustomEventEncoding.writePartitions;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.atomix.cluster.ClusterMembershipEvent;
+import io.atomix.cluster.ClusterMembershipEventListener;
+import io.atomix.core.Atomix;
 import io.zeebe.broker.Loggers;
 import io.zeebe.broker.system.configuration.ClusterCfg;
 import io.zeebe.gossip.Gossip;
@@ -34,19 +38,24 @@ import io.zeebe.protocol.impl.data.cluster.TopologyResponseDto;
 import io.zeebe.raft.Raft;
 import io.zeebe.raft.RaftStateListener;
 import io.zeebe.raft.state.RaftState;
+import io.zeebe.transport.SocketAddress;
 import io.zeebe.util.LogUtil;
 import io.zeebe.util.buffer.BufferUtil;
 import io.zeebe.util.sched.Actor;
 import io.zeebe.util.sched.future.ActorFuture;
+import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
 import java.util.function.Function;
 import org.agrona.DirectBuffer;
 import org.agrona.ExpandableArrayBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.slf4j.Logger;
 
-public class TopologyManagerImpl extends Actor implements TopologyManager, RaftStateListener {
+public class TopologyManagerImpl extends Actor
+    implements TopologyManager, RaftStateListener, ClusterMembershipEventListener {
   private static final Logger LOG = Loggers.CLUSTERING_LOGGER;
 
   public static final DirectBuffer CONTACT_POINTS_EVENT_TYPE =
@@ -64,12 +73,15 @@ public class TopologyManagerImpl extends Actor implements TopologyManager, RaftS
 
   private final Topology topology;
   private final Gossip gossip;
+  private final Atomix atomix;
 
   private List<TopologyMemberListener> topologyMemberListers = new ArrayList<>();
   private List<TopologyPartitionListener> topologyPartitionListers = new ArrayList<>();
 
-  public TopologyManagerImpl(Gossip gossip, NodeInfo localBroker, ClusterCfg clusterCfg) {
+  public TopologyManagerImpl(
+      Gossip gossip, Atomix atomix, NodeInfo localBroker, ClusterCfg clusterCfg) {
     this.gossip = gossip;
+    this.atomix = atomix;
     this.topology =
         new Topology(
             localBroker,
@@ -85,13 +97,15 @@ public class TopologyManagerImpl extends Actor implements TopologyManager, RaftS
 
   @Override
   protected void onActorStarting() {
-    gossip.addMembershipListener(membershipListner);
-
-    gossip.addCustomEventListener(CONTACT_POINTS_EVENT_TYPE, contactPointsChangeListener);
-    gossip.addCustomEventListener(PARTITIONS_EVENT_TYPE, partitionChangeListener);
-
-    gossip.registerSyncRequestHandler(CONTACT_POINTS_EVENT_TYPE, localContactPointsSycHandler);
-    gossip.registerSyncRequestHandler(PARTITIONS_EVENT_TYPE, knownPartitionsSyncHandler);
+    //    gossip.addMembershipListener(membershipListner);
+    //
+    //    gossip.addCustomEventListener(CONTACT_POINTS_EVENT_TYPE, contactPointsChangeListener);
+    //    gossip.addCustomEventListener(PARTITIONS_EVENT_TYPE, partitionChangeListener);
+    //
+    //    gossip.registerSyncRequestHandler(CONTACT_POINTS_EVENT_TYPE,
+    // localContactPointsSycHandler);
+    //    gossip.registerSyncRequestHandler(PARTITIONS_EVENT_TYPE, knownPartitionsSyncHandler);
+    //
   }
 
   @Override
@@ -143,6 +157,63 @@ public class TopologyManagerImpl extends Actor implements TopologyManager, RaftS
 
           publishLocalPartitions();
         });
+  }
+
+  @Override
+  public void event(ClusterMembershipEvent clusterMembershipEvent) {
+    switch (clusterMembershipEvent.type()) {
+      case METADATA_CHANGED:
+        io.atomix.cluster.Member node = clusterMembershipEvent.subject();
+        Properties properties = node.properties();
+        for (String p : properties.stringPropertyNames()) {
+          if (p.startsWith("partition")) {
+            int partitionId = Integer.parseInt(p.split("-")[1]);
+            PartitionInfo partitionInfo =
+                topology.updatePartition(
+                    partitionId,
+                    0,
+                    topology.getMember(Integer.parseInt(node.id().id())),
+                    RaftState.valueOf(properties.getProperty(p)));
+
+            notifyPartitionUpdated(
+                partitionInfo, topology.getMember(Integer.parseInt(node.id().id())));
+          }
+        }
+        break;
+      case MEMBER_ADDED:
+        io.atomix.cluster.Member newNode = clusterMembershipEvent.subject();
+        Properties newProperties = newNode.properties();
+
+        LOG.info("Memeber Added {}", newNode.id());
+        String replicationAddress = newProperties.getProperty("replicationAddress");
+        ObjectMapper mapper = new ObjectMapper();
+        String managementAddress = newProperties.getProperty("managementAddress");
+        String clientApiAddress = newProperties.getProperty("clientAddress");
+        String subscriptionAddress = newProperties.getProperty("subscriptionAddress");
+        try {
+          InetSocketAddress replication =
+              mapper.readValue(replicationAddress, InetSocketAddress.class);
+          InetSocketAddress management =
+              mapper.readValue(managementAddress, InetSocketAddress.class);
+          InetSocketAddress client = mapper.readValue(clientApiAddress, InetSocketAddress.class);
+          InetSocketAddress subscription =
+              mapper.readValue(subscriptionAddress, InetSocketAddress.class);
+
+          NodeInfo nodeInfo =
+              new NodeInfo(
+                  Integer.parseInt(newNode.id().id()),
+                  new SocketAddress(client),
+                  new SocketAddress(management),
+                  new SocketAddress(replication),
+                  new SocketAddress(subscription));
+          topology.addMember(nodeInfo);
+
+          notifyMemberAdded(nodeInfo);
+
+        } catch (IOException e) {
+          e.printStackTrace();
+        }
+    }
   }
 
   private class ContactPointsChangeListener implements GossipCustomEventListener {
@@ -241,6 +312,20 @@ public class TopologyManagerImpl extends Actor implements TopologyManager, RaftS
     final int length = writePartitions(topology.getLocal(), eventBuffer, 0);
 
     gossip.publishEvent(PARTITIONS_EVENT_TYPE, eventBuffer, 0, length);
+    for (PartitionInfo p : topology.getLocal().getLeaders()) {
+      atomix
+          .getMembershipService()
+          .getLocalMember()
+          .properties()
+          .setProperty("partition-" + p.getPartitionId(), "LEADER");
+    }
+    for (PartitionInfo p : topology.getLocal().getFollowers()) {
+      atomix
+          .getMembershipService()
+          .getLocalMember()
+          .properties()
+          .setProperty("partition-" + p.getPartitionId(), "FOLLOWER");
+    }
   }
 
   public ActorFuture<Void> close() {

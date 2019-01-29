@@ -34,13 +34,10 @@ import io.zeebe.broker.system.configuration.SocketBindingCfg;
 import io.zeebe.servicecontainer.Service;
 import io.zeebe.servicecontainer.ServiceStartContext;
 import io.zeebe.servicecontainer.ServiceStopContext;
-import io.zeebe.util.sched.future.ActorFuture;
-import io.zeebe.util.sched.future.CompletableActorFuture;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
-import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
 
 public class AtomixService implements Service<Atomix> {
@@ -84,16 +81,10 @@ public class AtomixService implements Service<Atomix> {
     atomix
         .getMembershipService()
         .addListener(mEvent -> LOG.info("Member {} receives {}", localMemberId, mEvent.toString()));
-
-    final CompletableFuture<Void> startFuture = atomix.start();
-    startContext.async(mapCompletableFuture(startFuture));
   }
 
   @Override
-  public void stop(ServiceStopContext stopContext) {
-    final CompletableFuture<Void> stopFuture = atomix.stop();
-    stopContext.async(mapCompletableFuture(stopFuture));
-  }
+  public void stop(ServiceStopContext stopContext) {}
 
   @Override
   public Atomix get() {
@@ -147,18 +138,5 @@ public class AtomixService implements Service<Atomix> {
         socketBindingCfg.toSocketAddress().toInetSocketAddress();
     final String value = objectMapper.writeValueAsString(inetSocketAddress);
     properties.setProperty(addressName, value);
-  }
-
-  private ActorFuture<Void> mapCompletableFuture(CompletableFuture<Void> atomixFuture) {
-    final ActorFuture<Void> mappedActorFuture = new CompletableActorFuture<>();
-
-    atomixFuture
-        .thenAccept(mappedActorFuture::complete)
-        .exceptionally(
-            t -> {
-              mappedActorFuture.completeExceptionally(t);
-              return null;
-            });
-    return mappedActorFuture;
   }
 }

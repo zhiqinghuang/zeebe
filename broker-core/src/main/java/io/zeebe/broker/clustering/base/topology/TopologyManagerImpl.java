@@ -26,6 +26,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.atomix.cluster.ClusterMembershipEvent;
 import io.atomix.cluster.ClusterMembershipEventListener;
 import io.atomix.core.Atomix;
+import io.atomix.cluster.Member;
 import io.zeebe.broker.Loggers;
 import io.zeebe.broker.system.configuration.ClusterCfg;
 import io.zeebe.gossip.Gossip;
@@ -33,7 +34,6 @@ import io.zeebe.gossip.GossipCustomEventListener;
 import io.zeebe.gossip.GossipMembershipListener;
 import io.zeebe.gossip.GossipSyncRequestHandler;
 import io.zeebe.gossip.dissemination.GossipSyncRequest;
-import io.zeebe.gossip.membership.Member;
 import io.zeebe.protocol.impl.data.cluster.TopologyResponseDto;
 import io.zeebe.raft.Raft;
 import io.zeebe.raft.RaftStateListener;
@@ -72,7 +72,6 @@ public class TopologyManagerImpl extends Actor
       new KnownPartitionsSyncHandler();
 
   private final Topology topology;
-  //private final Gossip gossip;
   private final Atomix atomix;
 
   private List<TopologyMemberListener> topologyMemberListers = new ArrayList<>();
@@ -80,7 +79,6 @@ public class TopologyManagerImpl extends Actor
 
   public TopologyManagerImpl(
       Gossip gossip, Atomix atomix, NodeInfo localBroker, ClusterCfg clusterCfg) {
-//    this.gossip = gossip;
     this.atomix = atomix;
     this.topology =
         new Topology(
@@ -97,23 +95,12 @@ public class TopologyManagerImpl extends Actor
 
   @Override
   protected void onActorStarting() {
-    //    gossip.addMembershipListener(membershipListner);
-    //
-    //    gossip.addCustomEventListener(CONTACT_POINTS_EVENT_TYPE, contactPointsChangeListener);
-    //    gossip.addCustomEventListener(PARTITIONS_EVENT_TYPE, partitionChangeListener);
-    //
-    //    gossip.registerSyncRequestHandler(CONTACT_POINTS_EVENT_TYPE,
-    // localContactPointsSycHandler);
-    //    gossip.registerSyncRequestHandler(PARTITIONS_EVENT_TYPE, knownPartitionsSyncHandler);
-    //
+
   }
 
   @Override
   protected void onActorClosing() {
-    //gossip.removeCustomEventListener(partitionChangeListener);
-    //gossip.removeCustomEventListener(contactPointsChangeListener);
 
-    // remove gossip sync handlers?
   }
 
   public void onRaftStarted(Raft raft) {
@@ -161,20 +148,20 @@ public class TopologyManagerImpl extends Actor
 
   @Override
   public void event(ClusterMembershipEvent clusterMembershipEvent) {
+    Member eventSource = clusterMembershipEvent.subject();
+    Member localNode = atomix.getMembershipService().getLocalMember();
     switch (clusterMembershipEvent.type()) {
       case METADATA_CHANGED:
-        io.atomix.cluster.Member node = clusterMembershipEvent.subject();
-        LOG.info(
-            "Im node {}. metadata of member {} changed",
-            atomix.getMembershipService().getLocalMember().id(),
-            node.id());
-        updatePartitionInfo(node);
+        LOG.debug(
+            "Member {} receives metadata change of member {}",
+            localNode,
+            eventSource.id());
+        updatePartitionInfo(eventSource);
         break;
       case MEMBER_ADDED:
-        io.atomix.cluster.Member newNode = clusterMembershipEvent.subject();
-        Properties newProperties = newNode.properties();
+          Properties newProperties = eventSource.properties();
 
-        LOG.info(
+        LOG.debug(
             "Im node {}. new member {} added",
             atomix.getMembershipService().getLocalMember().id(),
             newNode.id());

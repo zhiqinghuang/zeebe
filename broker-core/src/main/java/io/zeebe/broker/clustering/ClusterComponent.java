@@ -110,6 +110,7 @@ public class ClusterComponent implements Component {
     final AtomixJoinService atomixJoinService = new AtomixJoinService();
     baseLayerInstall
         .createService(ATOMIX_JOIN_SERVICE, atomixJoinService)
+        .dependency(TOPOLOGY_MANAGER_SERVICE)
         .dependency(ATOMIX_SERVICE, atomixJoinService.getAtomixInjector())
         .install();
   }

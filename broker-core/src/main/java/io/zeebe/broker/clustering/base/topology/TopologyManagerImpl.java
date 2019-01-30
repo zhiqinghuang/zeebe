@@ -52,6 +52,8 @@ public class TopologyManagerImpl extends Actor
   private final Topology topology;
   private final Atomix atomix;
 
+  private final ObjectMapper mapper = new ObjectMapper();
+
   private List<TopologyMemberListener> topologyMemberListers = new ArrayList<>();
   private List<TopologyPartitionListener> topologyPartitionListers = new ArrayList<>();
 
@@ -69,12 +71,6 @@ public class TopologyManagerImpl extends Actor
   public String getName() {
     return "topology";
   }
-
-  @Override
-  protected void onActorStarting() {}
-
-  @Override
-  protected void onActorClosing() {}
 
   public void onRaftStarted(Raft raft) {
     actor.run(
@@ -123,56 +119,19 @@ public class TopologyManagerImpl extends Actor
   public void event(ClusterMembershipEvent clusterMembershipEvent) {
     actor.call(
         () -> {
-          final Member eventSource = clusterMembershipEvent.subject();
-          final Member localNode = atomix.getMembershipService().getLocalMember();
           switch (clusterMembershipEvent.type()) {
             case METADATA_CHANGED:
-              LOG.debug(
-                  "Member {} receives metadata change of member {}", localNode, eventSource.id());
-              updatePartitionInfo(eventSource);
+              onMemberMetadataChanged(clusterMembershipEvent);
               break;
             case MEMBER_ADDED:
-              LOG.debug("Member {} receives event member {} added", localNode, eventSource.id());
-
-              final Properties newProperties = eventSource.properties();
-              final String replicationAddress = newProperties.getProperty("replicationAddress");
-              final String managementAddress = newProperties.getProperty("managementAddress");
-              final String clientApiAddress = newProperties.getProperty("clientAddress");
-              final String subscriptionAddress = newProperties.getProperty("subscriptionAddress");
-              final ObjectMapper mapper = new ObjectMapper();
-              try {
-                final InetSocketAddress replication =
-                    mapper.readValue(replicationAddress, InetSocketAddress.class);
-                final InetSocketAddress management =
-                    mapper.readValue(managementAddress, InetSocketAddress.class);
-                final InetSocketAddress client =
-                    mapper.readValue(clientApiAddress, InetSocketAddress.class);
-                final InetSocketAddress subscription =
-                    mapper.readValue(subscriptionAddress, InetSocketAddress.class);
-
-                final NodeInfo nodeInfo =
-                    new NodeInfo(
-                        Integer.parseInt(eventSource.id().id()),
-                        new SocketAddress(client),
-                        new SocketAddress(management),
-                        new SocketAddress(replication),
-                        new SocketAddress(subscription));
-
-                topology.addMember(nodeInfo);
-                notifyMemberAdded(nodeInfo);
-                updatePartitionInfo(eventSource);
-
-              } catch (IOException e) {
-                e.printStackTrace();
-              }
+              onMemberAdded(clusterMembershipEvent);
               break;
             case MEMBER_REMOVED:
-              LOG.debug("Member {} receives event member {} removed", localNode, eventSource.id());
-              final NodeInfo nodeInfo = topology.getMember(Integer.parseInt(eventSource.id().id()));
-              topology.removeMember(nodeInfo);
-              notifyMemberRemoved(nodeInfo);
+              onMemberRemoved(clusterMembershipEvent);
               break;
             default:
+              final Member eventSource = clusterMembershipEvent.subject();
+              final Member localNode = atomix.getMembershipService().getLocalMember();
               LOG.info(
                   "Im node {}, event received from {} {}",
                   localNode.id(),
@@ -180,6 +139,63 @@ public class TopologyManagerImpl extends Actor
                   clusterMembershipEvent.type());
           }
         });
+  }
+
+  private void onMemberMetadataChanged(ClusterMembershipEvent clusterMembershipEvent) {
+    final Member eventSource = clusterMembershipEvent.subject();
+    final Member localNode = atomix.getMembershipService().getLocalMember();
+
+    LOG.debug("Member {} receives metadata change of member {}", localNode, eventSource.id());
+
+    updatePartitionInfo(eventSource);
+  }
+
+  private void onMemberRemoved(ClusterMembershipEvent clusterMembershipEvent) {
+    final Member eventSource = clusterMembershipEvent.subject();
+    final Member localNode = atomix.getMembershipService().getLocalMember();
+
+    LOG.debug("Member {} receives event member {} removed", localNode, eventSource.id());
+
+    final NodeInfo nodeInfo = topology.getMember(Integer.parseInt(eventSource.id().id()));
+    topology.removeMember(nodeInfo);
+    notifyMemberRemoved(nodeInfo);
+  }
+
+  private void onMemberAdded(ClusterMembershipEvent clusterMembershipEvent) {
+    final Member eventSource = clusterMembershipEvent.subject();
+    final Member localNode = atomix.getMembershipService().getLocalMember();
+
+    LOG.debug("Member {} receives event member {} added", localNode, eventSource.id());
+
+    final Properties newProperties = eventSource.properties();
+    final String replicationAddress = newProperties.getProperty("replicationAddress");
+    final String managementAddress = newProperties.getProperty("managementAddress");
+    final String clientApiAddress = newProperties.getProperty("clientAddress");
+    final String subscriptionAddress = newProperties.getProperty("subscriptionAddress");
+    try {
+      final InetSocketAddress replication =
+          mapper.readValue(replicationAddress, InetSocketAddress.class);
+      final InetSocketAddress management =
+          mapper.readValue(managementAddress, InetSocketAddress.class);
+      final InetSocketAddress client = mapper.readValue(clientApiAddress, InetSocketAddress.class);
+      final InetSocketAddress subscription =
+          mapper.readValue(subscriptionAddress, InetSocketAddress.class);
+
+      final NodeInfo nodeInfo =
+          new NodeInfo(
+              Integer.parseInt(eventSource.id().id()),
+              new SocketAddress(client),
+              new SocketAddress(management),
+              new SocketAddress(replication),
+              new SocketAddress(subscription));
+
+      topology.addMember(nodeInfo);
+      notifyMemberAdded(nodeInfo);
+      updatePartitionInfo(eventSource);
+
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
   }
 
   // Update local knowledge about the partitions of remote node

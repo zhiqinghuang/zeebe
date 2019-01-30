@@ -145,7 +145,7 @@ public class TopologyManagerImpl extends Actor
     final Member eventSource = clusterMembershipEvent.subject();
     final Member localNode = atomix.getMembershipService().getLocalMember();
 
-    LOG.debug("Member {} receives metadata change of member {}", localNode, eventSource.id());
+    LOG.debug("Member {} receives metadata change of member {}", localNode.id(), eventSource.id());
 
     updatePartitionInfo(eventSource);
   }
@@ -154,7 +154,7 @@ public class TopologyManagerImpl extends Actor
     final Member eventSource = clusterMembershipEvent.subject();
     final Member localNode = atomix.getMembershipService().getLocalMember();
 
-    LOG.debug("Member {} receives event member {} removed", localNode, eventSource.id());
+    LOG.debug("Member {} receives event member {} removed", localNode.id(), eventSource.id());
 
     final NodeInfo nodeInfo = topology.getMember(Integer.parseInt(eventSource.id().id()));
     topology.removeMember(nodeInfo);
@@ -165,7 +165,7 @@ public class TopologyManagerImpl extends Actor
     final Member eventSource = clusterMembershipEvent.subject();
     final Member localNode = atomix.getMembershipService().getLocalMember();
 
-    LOG.debug("Member {} receives event member {} added", localNode, eventSource.id());
+    LOG.debug("Member {} receives event member {} added", localNode.id(), eventSource.id());
 
     final Properties newProperties = eventSource.properties();
     final String replicationAddress = newProperties.getProperty("replicationAddress");

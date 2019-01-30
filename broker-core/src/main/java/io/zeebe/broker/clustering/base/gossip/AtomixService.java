@@ -33,7 +33,6 @@ import io.zeebe.broker.system.configuration.NetworkCfg;
 import io.zeebe.broker.system.configuration.SocketBindingCfg;
 import io.zeebe.servicecontainer.Service;
 import io.zeebe.servicecontainer.ServiceStartContext;
-import io.zeebe.servicecontainer.ServiceStopContext;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
@@ -82,9 +81,6 @@ public class AtomixService implements Service<Atomix> {
         .getMembershipService()
         .addListener(mEvent -> LOG.info("Member {} receives {}", localMemberId, mEvent.toString()));
   }
-
-  @Override
-  public void stop(ServiceStopContext stopContext) {}
 
   @Override
   public Atomix get() {

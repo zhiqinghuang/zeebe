@@ -54,16 +54,15 @@ public class AtomixService implements Service<Atomix> {
   public void start(ServiceStartContext startContext) {
     final ClusterCfg clusterCfg = configuration.getCluster();
 
-    final int stepSize = 15;
     final int nodeId = clusterCfg.getNodeId();
     final String localMemberId = Integer.toString(nodeId);
 
     final NetworkCfg networkCfg = configuration.getNetwork();
-    final String host = networkCfg.getManagement().getHost();
-    final int port = networkCfg.getManagement().getPort() + stepSize;
+    final String host = networkCfg.getAtomix().getHost();
+    final int port = networkCfg.getAtomix().getPort();
 
     final NodeDiscoveryProvider discoveryProvider =
-        createDiscoveryProvider(clusterCfg, stepSize, localMemberId);
+        createDiscoveryProvider(clusterCfg, localMemberId);
     final Properties properties = createNodeProperties(networkCfg);
 
     atomix =
@@ -88,7 +87,7 @@ public class AtomixService implements Service<Atomix> {
   }
 
   private NodeDiscoveryProvider createDiscoveryProvider(
-      ClusterCfg clusterCfg, int stepSize, String localMemberId) {
+      ClusterCfg clusterCfg, String localMemberId) {
     final BootstrapDiscoveryBuilder builder = BootstrapDiscoveryProvider.builder();
     final List<String> initialContactPoints = clusterCfg.getInitialContactPoints();
 
@@ -96,7 +95,7 @@ public class AtomixService implements Service<Atomix> {
     initialContactPoints.forEach(
         contactAddress -> {
           final String[] address = contactAddress.split(":");
-          final int memberPort = Integer.parseInt(address[1]) + stepSize;
+          final int memberPort = Integer.parseInt(address[1]);
 
           final Node node =
               Node.builder().withAddress(Address.from(address[0], memberPort)).build();

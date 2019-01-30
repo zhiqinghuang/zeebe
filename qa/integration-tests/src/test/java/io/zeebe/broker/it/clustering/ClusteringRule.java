@@ -202,7 +202,7 @@ public class ClusteringRule extends ExternalResource {
     setCluster(nodeId, partitionCount, replicationFactor, clusterSize).accept(brokerCfg);
     if (nodeId > 0) {
       setInitialContactPoints(
-              getBrokerCfg(nodeId - 1).getNetwork().getManagement().toSocketAddress().toString())
+              getBrokerCfg(nodeId - 1).getNetwork().getAtomix().toSocketAddress().toString())
           .accept(brokerCfg);
     }
 

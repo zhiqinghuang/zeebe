@@ -88,4 +88,7 @@ public class EmbeddedBrokerConfigurator {
   public static Consumer<BrokerCfg> setSubscriptionApiPort(final int port) {
     return cfg -> cfg.getNetwork().getSubscription().setPort(port);
   }
+  public static Consumer<BrokerCfg> setAtomixApiPort(final int port) {
+    return cfg -> cfg.getNetwork().getAtomix().setPort(port);
+  }
 }

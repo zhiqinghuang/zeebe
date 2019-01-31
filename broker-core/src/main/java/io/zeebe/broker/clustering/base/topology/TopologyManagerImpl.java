@@ -54,8 +54,8 @@ public class TopologyManagerImpl extends Actor
 
   private final ObjectMapper mapper = new ObjectMapper();
 
-  private List<TopologyMemberListener> topologyMemberListers = new ArrayList<>();
-  private List<TopologyPartitionListener> topologyPartitionListers = new ArrayList<>();
+  private final List<TopologyMemberListener> topologyMemberListers = new ArrayList<>();
+  private final List<TopologyPartitionListener> topologyPartitionListers = new ArrayList<>();
 
   public TopologyManagerImpl(Atomix atomix, NodeInfo localBroker, ClusterCfg clusterCfg) {
     this.atomix = atomix;
@@ -117,6 +117,10 @@ public class TopologyManagerImpl extends Actor
 
   @Override
   public void event(ClusterMembershipEvent clusterMembershipEvent) {
+    LOG.info(
+        "Im node {}, event received {}",
+        atomix.getMembershipService().getLocalMember().id(),
+        clusterMembershipEvent);
     actor.call(
         () -> {
           switch (clusterMembershipEvent.type()) {

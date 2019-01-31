@@ -108,7 +108,6 @@ public class TopologyManagerImpl extends Actor
     LOG.error("#onStateChange {} {}", raft.getName(), raftState.name());
     actor.run(
         () -> {
-
           final NodeInfo memberInfo = topology.getLocal();
 
           updatePartition(

@@ -24,7 +24,8 @@ import io.atomix.cluster.discovery.BootstrapDiscoveryBuilder;
 import io.atomix.cluster.discovery.BootstrapDiscoveryProvider;
 import io.atomix.cluster.discovery.NodeDiscoveryProvider;
 import io.atomix.core.Atomix;
-import io.atomix.core.profile.Profile;
+import io.atomix.primitive.partition.MemberGroupStrategy;
+import io.atomix.protocols.backup.partition.PrimaryBackupPartitionGroup;
 import io.atomix.utils.net.Address;
 import io.zeebe.broker.Loggers;
 import io.zeebe.broker.system.configuration.BrokerCfg;
@@ -66,6 +67,17 @@ public class AtomixService implements Service<Atomix> {
     final Properties properties = createNodeProperties(networkCfg);
 
     LOG.error("Setup atomix node in cluster {}", clusterCfg.getClusterName());
+    final PrimaryBackupPartitionGroup partitionGroup =
+        PrimaryBackupPartitionGroup.builder("group")
+            .withMemberGroupStrategy(MemberGroupStrategy.NODE_AWARE)
+            .withNumPartitions(1)
+            .build();
+    final PrimaryBackupPartitionGroup systemGroup =
+        PrimaryBackupPartitionGroup.builder("system")
+            .withMemberGroupStrategy(MemberGroupStrategy.NODE_AWARE)
+            .withNumPartitions(1)
+            .build();
+
     atomix =
         Atomix.builder()
             .withClusterId(clusterCfg.getClusterName())
@@ -73,7 +85,8 @@ public class AtomixService implements Service<Atomix> {
             .withProperties(properties)
             .withAddress(Address.from(host, port))
             .withMembershipProvider(discoveryProvider)
-            .withProfiles(Profile.dataGrid(1))
+            .withManagementGroup(systemGroup)
+            .withPartitionGroups(partitionGroup)
             .build();
 
     // only logging purpose for now

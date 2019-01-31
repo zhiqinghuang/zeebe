@@ -109,12 +109,14 @@ public class BrokerClientImpl implements BrokerClient {
             configuration.getCluster().getRequestTimeout());
     actorScheduler.submitActor(requestManager);
 
+    LOG.error("Gateway contact point: {}", configuration.getCluster().getContactPoint());
     final SocketAddress contactPoint =
         SocketAddress.from(configuration.getCluster().getContactPoint());
     registerEndpoint(ClientTransport.UNKNOWN_NODE_ID, contactPoint);
   }
 
   private void registerEndpoint(final int nodeId, final SocketAddress socketAddress) {
+    LOG.error("Register endpoint node {} {}", nodeId, socketAddress);
     registerEndpoint(transport, nodeId, socketAddress);
     registerEndpoint(internalTransport, nodeId, socketAddress);
   }

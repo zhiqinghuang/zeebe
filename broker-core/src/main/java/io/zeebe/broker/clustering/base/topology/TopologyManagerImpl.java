@@ -73,6 +73,7 @@ public class TopologyManagerImpl extends Actor
   }
 
   public void onRaftStarted(Raft raft) {
+    LOG.error("On raft started {}", raft.getName());
     actor.run(
         () -> {
           raft.registerRaftStateListener(this);
@@ -104,14 +105,18 @@ public class TopologyManagerImpl extends Actor
 
   @Override
   public void onStateChange(Raft raft, RaftState raftState) {
+    LOG.error("#onStateChange {} {}", raft.getName(), raftState.name());
     actor.run(
         () -> {
+
           final NodeInfo memberInfo = topology.getLocal();
 
           updatePartition(
               raft.getPartitionId(), raft.getReplicationFactor(), memberInfo, raft.getState());
 
           publishLocalPartitions();
+
+          LOG.error("Updated topology #onStateChange {}", topology.asDto().toString());
         });
   }
 
@@ -142,6 +147,7 @@ public class TopologyManagerImpl extends Actor
                   eventSource.id(),
                   clusterMembershipEvent.type());
           }
+          LOG.error("Updated topology #event {}", topology.asDto().toString());
         });
   }
 

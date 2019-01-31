@@ -65,9 +65,10 @@ public class AtomixService implements Service<Atomix> {
         createDiscoveryProvider(clusterCfg, localMemberId);
     final Properties properties = createNodeProperties(networkCfg);
 
+    LOG.error("Setup atomix node in cluster {}", clusterCfg.getClusterName());
     atomix =
         Atomix.builder()
-            .withClusterId("zeebe-cluster")
+            .withClusterId(clusterCfg.getClusterName())
             .withMemberId(localMemberId)
             .withProperties(properties)
             .withAddress(Address.from(host, port))

@@ -127,6 +127,7 @@ public class ClusterComponent implements Component {
         new BootstrapPartitions(context.getBrokerConfiguration());
     baseLayerInstall
         .createService(RAFT_BOOTSTRAP_SERVICE, raftBootstrapService)
+        .dependency(ATOMIX_JOIN_SERVICE)
         .dependency(
             RAFT_CONFIGURATION_MANAGER, raftBootstrapService.getConfigurationManagerInjector())
         .install();

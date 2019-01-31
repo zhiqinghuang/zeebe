@@ -23,6 +23,7 @@ import io.atomix.cluster.Node;
 import io.atomix.cluster.discovery.BootstrapDiscoveryBuilder;
 import io.atomix.cluster.discovery.BootstrapDiscoveryProvider;
 import io.atomix.cluster.discovery.NodeDiscoveryProvider;
+import io.atomix.cluster.protocol.SwimMembershipProtocol;
 import io.atomix.core.Atomix;
 import io.atomix.core.AtomixBuilder;
 import io.atomix.primitive.partition.MemberGroupStrategy;
@@ -36,6 +37,7 @@ import io.zeebe.broker.system.configuration.SocketBindingCfg;
 import io.zeebe.servicecontainer.Service;
 import io.zeebe.servicecontainer.ServiceStartContext;
 import java.net.InetSocketAddress;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
@@ -72,10 +74,15 @@ public class AtomixService implements Service<Atomix> {
     final AtomixBuilder atomixBuilder =
         Atomix.builder()
             .withClusterId(clusterCfg.getClusterName())
+            .withMembershipProtocol(
+                SwimMembershipProtocol.builder()
+                    .withFailureTimeout(Duration.ofMillis(2_000))
+                    .build())
             .withMemberId(localMemberId)
             .withProperties(properties)
             .withAddress(Address.from(host, port))
             .withMembershipProvider(discoveryProvider);
+
     if (nodeId == 0) {
       final PrimaryBackupPartitionGroup partitionGroup =
           PrimaryBackupPartitionGroup.builder("group")

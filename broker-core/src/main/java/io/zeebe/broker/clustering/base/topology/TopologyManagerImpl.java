@@ -21,6 +21,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.atomix.cluster.ClusterMembershipEvent;
 import io.atomix.cluster.ClusterMembershipEventListener;
 import io.atomix.cluster.Member;
+import io.atomix.cluster.MemberId;
 import io.atomix.core.Atomix;
 import io.zeebe.broker.Loggers;
 import io.zeebe.broker.system.configuration.ClusterCfg;
@@ -105,7 +106,8 @@ public class TopologyManagerImpl extends Actor
 
   @Override
   public void onStateChange(Raft raft, RaftState raftState) {
-    LOG.error("#onStateChange {} {}", raft.getName(), raftState.name());
+    LOG.error(
+        "#onStateChange {} {}", raft.getName(), raftState == null ? "undefined" : raftState.name());
     actor.run(
         () -> {
           final NodeInfo memberInfo = topology.getLocal();
@@ -121,10 +123,18 @@ public class TopologyManagerImpl extends Actor
 
   @Override
   public void event(ClusterMembershipEvent clusterMembershipEvent) {
-    LOG.info(
-        "Im node {}, event received {}",
-        atomix.getMembershipService().getLocalMember().id(),
-        clusterMembershipEvent);
+    final MemberId localId = atomix.getMembershipService().getLocalMember().id();
+    final Member subject = clusterMembershipEvent.subject();
+
+    if (subject.id().equals(localId)) {
+      LOG.error(
+          "I'm node {} and I got an event of myself, skip since I don't care {}",
+          localId,
+          clusterMembershipEvent);
+      return;
+    }
+
+    LOG.info("Im node {}, event received {}", localId, clusterMembershipEvent);
     actor.call(
         () -> {
           switch (clusterMembershipEvent.type()) {
@@ -138,7 +148,7 @@ public class TopologyManagerImpl extends Actor
               onMemberRemoved(clusterMembershipEvent);
               break;
             default:
-              final Member eventSource = clusterMembershipEvent.subject();
+              final Member eventSource = subject;
               final Member localNode = atomix.getMembershipService().getLocalMember();
               LOG.info(
                   "Im node {}, event received from {} {}",

@@ -24,6 +24,7 @@ import io.atomix.cluster.discovery.BootstrapDiscoveryBuilder;
 import io.atomix.cluster.discovery.BootstrapDiscoveryProvider;
 import io.atomix.cluster.discovery.NodeDiscoveryProvider;
 import io.atomix.core.Atomix;
+import io.atomix.core.AtomixBuilder;
 import io.atomix.primitive.partition.MemberGroupStrategy;
 import io.atomix.protocols.backup.partition.PrimaryBackupPartitionGroup;
 import io.atomix.utils.net.Address;
@@ -67,27 +68,30 @@ public class AtomixService implements Service<Atomix> {
     final Properties properties = createNodeProperties(networkCfg);
 
     LOG.error("Setup atomix node in cluster {}", clusterCfg.getClusterName());
-    final PrimaryBackupPartitionGroup partitionGroup =
-        PrimaryBackupPartitionGroup.builder("group")
-            .withMemberGroupStrategy(MemberGroupStrategy.NODE_AWARE)
-            .withNumPartitions(1)
-            .build();
-    final PrimaryBackupPartitionGroup systemGroup =
-        PrimaryBackupPartitionGroup.builder("system")
-            .withMemberGroupStrategy(MemberGroupStrategy.NODE_AWARE)
-            .withNumPartitions(1)
-            .build();
 
-    atomix =
+    final AtomixBuilder atomixBuilder =
         Atomix.builder()
             .withClusterId(clusterCfg.getClusterName())
             .withMemberId(localMemberId)
             .withProperties(properties)
             .withAddress(Address.from(host, port))
-            .withMembershipProvider(discoveryProvider)
-            .withManagementGroup(systemGroup)
-            .withPartitionGroups(partitionGroup)
-            .build();
+            .withMembershipProvider(discoveryProvider);
+    if (nodeId == 0) {
+      final PrimaryBackupPartitionGroup partitionGroup =
+          PrimaryBackupPartitionGroup.builder("group")
+              .withMemberGroupStrategy(MemberGroupStrategy.NODE_AWARE)
+              .withNumPartitions(1)
+              .build();
+      final PrimaryBackupPartitionGroup systemGroup =
+          PrimaryBackupPartitionGroup.builder("system")
+              .withMemberGroupStrategy(MemberGroupStrategy.NODE_AWARE)
+              .withNumPartitions(1)
+              .build();
+
+      atomixBuilder.withManagementGroup(systemGroup).withPartitionGroups(partitionGroup);
+    }
+
+    atomix = atomixBuilder.build();
 
     // only logging purpose for now
     atomix

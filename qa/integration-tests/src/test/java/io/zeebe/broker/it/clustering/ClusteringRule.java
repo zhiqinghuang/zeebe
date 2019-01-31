@@ -262,17 +262,14 @@ public class ClusteringRule extends ExternalResource {
 
   private void waitUntilBrokersInTopology() {
     final Set<SocketAddress> addresses =
-        brokers
-            .values()
-            .stream()
+        brokers.values().stream()
             .map(Broker::getConfig)
             .map(b -> b.getNetwork().getClient().toSocketAddress())
             .collect(Collectors.toSet());
 
     waitForTopology(
         topology ->
-            topology
-                .stream()
+            topology.stream()
                 .map(b -> new SocketAddress(b.getHost(), b.getPort()))
                 .collect(Collectors.toSet())
                 .containsAll(addresses));
@@ -322,24 +319,20 @@ public class ClusteringRule extends ExternalResource {
 
   private Optional<BrokerInfo> extractPartitionLeader(
       final List<BrokerInfo> brokers, final int partition) {
-    return brokers
-        .stream()
+    return brokers.stream()
         .filter(
             b ->
-                b.getPartitions()
-                    .stream()
+                b.getPartitions().stream()
                     .anyMatch(p -> p.getPartitionId() == partition && p.isLeader()))
         .findFirst();
   }
 
   private Optional<BrokerInfo> extractPartitionFollower(
       final List<BrokerInfo> brokers, final int partition) {
-    return brokers
-        .stream()
+    return brokers.stream()
         .filter(
             b ->
-                b.getPartitions()
-                    .stream()
+                b.getPartitions().stream()
                     .anyMatch(p -> p.getPartitionId() == partition && !p.isLeader()))
         .findFirst();
   }
@@ -356,8 +349,7 @@ public class ClusteringRule extends ExternalResource {
     final AtomicLong leaders = new AtomicLong();
     final AtomicLong followers = new AtomicLong();
 
-    brokers
-        .stream()
+    brokers.stream()
         .flatMap(b -> b.getPartitions().stream())
         .forEach(
             p -> {
@@ -392,8 +384,7 @@ public class ClusteringRule extends ExternalResource {
   private void waitUntilBrokerIsAddedToTopology(final SocketAddress socketAddress) {
     waitForTopology(
         topology ->
-            topology
-                .stream()
+            topology.stream()
                 .anyMatch(
                     b ->
                         b.getHost().equals(socketAddress.host())
@@ -407,12 +398,7 @@ public class ClusteringRule extends ExternalResource {
    * @return
    */
   public List<Integer> getBrokersLeadingPartitions(final SocketAddress socketAddress) {
-    return client
-        .newTopologyRequest()
-        .send()
-        .join()
-        .getBrokers()
-        .stream()
+    return client.newTopologyRequest().send().join().getBrokers().stream()
         .filter(
             b -> b.getHost().equals(socketAddress.host()) && b.getPort() == socketAddress.port())
         .flatMap(broker -> broker.getPartitions().stream())
@@ -427,12 +413,7 @@ public class ClusteringRule extends ExternalResource {
    * @return
    */
   public List<SocketAddress> getBrokersInCluster() {
-    return client
-        .newTopologyRequest()
-        .send()
-        .join()
-        .getBrokers()
-        .stream()
+    return client.newTopologyRequest().send().join().getBrokers().stream()
         .map(b -> new SocketAddress(b.getHost(), b.getPort()))
         .collect(Collectors.toList());
   }
@@ -456,8 +437,7 @@ public class ClusteringRule extends ExternalResource {
   }
 
   public SocketAddress[] getOtherBrokers(final SocketAddress address) {
-    return getBrokers()
-        .stream()
+    return getBrokers().stream()
         .map(b -> b.getConfig().getNetwork().getClient().toSocketAddress())
         .filter(a -> !address.equals(a))
         .toArray(SocketAddress[]::new);
@@ -475,12 +455,7 @@ public class ClusteringRule extends ExternalResource {
    */
   public long getPartitionLeaderCount() {
 
-    return client
-        .newTopologyRequest()
-        .send()
-        .join()
-        .getBrokers()
-        .stream()
+    return client.newTopologyRequest().send().join().getBrokers().stream()
         .flatMap(broker -> broker.getPartitions().stream())
         .filter(p -> p.isLeader())
         .count();
@@ -502,8 +477,7 @@ public class ClusteringRule extends ExternalResource {
   private void waitUntilBrokerIsRemovedFromTopology(final SocketAddress socketAddress) {
     waitForTopology(
         topology ->
-            topology
-                .stream()
+            topology.stream()
                 .noneMatch(
                     b ->
                         b.getHost().equals(socketAddress.host())
@@ -514,8 +488,7 @@ public class ClusteringRule extends ExternalResource {
       final List<Integer> partitions, final SocketAddress oldLeader) {
     waitForTopology(
         topology ->
-            topology
-                .stream()
+            topology.stream()
                 .filter(
                     b -> !(b.getHost().equals(oldLeader.host()) && b.getPort() == oldLeader.port()))
                 .flatMap(broker -> broker.getPartitions().stream())
@@ -528,9 +501,7 @@ public class ClusteringRule extends ExternalResource {
   public void waitForTopology(final Function<List<BrokerInfo>, Boolean> topologyPredicate) {
     waitUntil(
         () ->
-            brokers
-                .values()
-                .stream()
+            brokers.values().stream()
                 .allMatch(
                     b ->
                         topologyPredicate.apply(

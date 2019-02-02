@@ -19,6 +19,7 @@ package io.zeebe.broker.clustering.base.gossip;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.io.Files;
 import io.atomix.cluster.Node;
 import io.atomix.cluster.discovery.BootstrapDiscoveryBuilder;
 import io.atomix.cluster.discovery.BootstrapDiscoveryProvider;
@@ -26,8 +27,7 @@ import io.atomix.cluster.discovery.NodeDiscoveryProvider;
 import io.atomix.cluster.protocol.SwimMembershipProtocol;
 import io.atomix.core.Atomix;
 import io.atomix.core.AtomixBuilder;
-import io.atomix.primitive.partition.MemberGroupStrategy;
-import io.atomix.protocols.backup.partition.PrimaryBackupPartitionGroup;
+import io.atomix.protocols.raft.partition.RaftPartitionGroup;
 import io.atomix.utils.net.Address;
 import io.zeebe.broker.Loggers;
 import io.zeebe.broker.system.configuration.BrokerCfg;
@@ -83,15 +83,26 @@ public class AtomixService implements Service<Atomix> {
             .withAddress(Address.from(host, port))
             .withMembershipProvider(discoveryProvider);
 
-    final PrimaryBackupPartitionGroup partitionGroup =
-        PrimaryBackupPartitionGroup.builder("group")
-            .withMemberGroupStrategy(MemberGroupStrategy.NODE_AWARE)
+    final RaftPartitionGroup partitionGroup =
+        RaftPartitionGroup.builder("raft")
+            .withMembers(
+                Integer.toString(nodeId),
+                Integer.toString((nodeId + 1) % 3),
+                Integer.toString((nodeId + 2) % 3))
+            .withDataDirectory(Files.createTempDir())
             .withNumPartitions(1)
+            .withPartitionSize(3)
             .build();
-    final PrimaryBackupPartitionGroup systemGroup =
-        PrimaryBackupPartitionGroup.builder("system")
-            .withMemberGroupStrategy(MemberGroupStrategy.NODE_AWARE)
+
+    final RaftPartitionGroup systemGroup =
+        RaftPartitionGroup.builder("system")
+            .withMembers(
+                Integer.toString(nodeId),
+                Integer.toString((nodeId + 1) % 3),
+                Integer.toString((nodeId + 2) % 3))
+            .withDataDirectory(Files.createTempDir())
             .withNumPartitions(1)
+            .withPartitionSize(3)
             .build();
 
     atomixBuilder.withManagementGroup(systemGroup).withPartitionGroups(partitionGroup);

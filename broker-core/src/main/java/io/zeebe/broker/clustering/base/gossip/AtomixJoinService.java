@@ -36,7 +36,7 @@ public class AtomixJoinService implements Service<Void> {
     atomix = atomixInjector.getValue();
 
     final CompletableFuture<Void> startFuture = atomix.start();
-    startContext.async(mapCompletableFuture(startFuture));
+    //    startContext.async(mapCompletableFuture(startFuture));
   }
 
   @Override

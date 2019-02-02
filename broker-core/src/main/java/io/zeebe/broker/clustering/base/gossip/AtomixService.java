@@ -83,20 +83,18 @@ public class AtomixService implements Service<Atomix> {
             .withAddress(Address.from(host, port))
             .withMembershipProvider(discoveryProvider);
 
-    if (nodeId == 0) {
-      final PrimaryBackupPartitionGroup partitionGroup =
-          PrimaryBackupPartitionGroup.builder("group")
-              .withMemberGroupStrategy(MemberGroupStrategy.NODE_AWARE)
-              .withNumPartitions(1)
-              .build();
-      final PrimaryBackupPartitionGroup systemGroup =
-          PrimaryBackupPartitionGroup.builder("system")
-              .withMemberGroupStrategy(MemberGroupStrategy.NODE_AWARE)
-              .withNumPartitions(1)
-              .build();
+    final PrimaryBackupPartitionGroup partitionGroup =
+        PrimaryBackupPartitionGroup.builder("group")
+            .withMemberGroupStrategy(MemberGroupStrategy.NODE_AWARE)
+            .withNumPartitions(1)
+            .build();
+    final PrimaryBackupPartitionGroup systemGroup =
+        PrimaryBackupPartitionGroup.builder("system")
+            .withMemberGroupStrategy(MemberGroupStrategy.NODE_AWARE)
+            .withNumPartitions(1)
+            .build();
 
-      atomixBuilder.withManagementGroup(systemGroup).withPartitionGroups(partitionGroup);
-    }
+    atomixBuilder.withManagementGroup(systemGroup).withPartitionGroups(partitionGroup);
 
     atomix = atomixBuilder.build();
 

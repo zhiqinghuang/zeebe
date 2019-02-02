@@ -68,7 +68,7 @@ pipeline {
                 stage('1 - Java Tests') {
                     steps {
                         withMaven(jdk: jdkVersion, maven: mavenVersion, mavenSettingsConfig: mavenSettingsConfig) {
-                            sh 'mvn -B -T 1C verify -P skip-unstable-ci,retry-tests'
+                            sh 'mvn -B verify -P skip-unstable-ci,retry-tests -pl qa/integration-tests'
                         }
                     }
                     post {

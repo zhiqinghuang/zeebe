@@ -91,7 +91,7 @@ public class AtomixService implements Service<Atomix> {
                 Integer.toString((nodeId + 2) % 3))
             .withDataDirectory(Files.createTempDir())
             .withNumPartitions(1)
-            .withPartitionSize(3)
+            .withPartitionSize(1)
             .build();
 
     final RaftPartitionGroup systemGroup =
@@ -102,7 +102,7 @@ public class AtomixService implements Service<Atomix> {
                 Integer.toString((nodeId + 2) % 3))
             .withDataDirectory(Files.createTempDir())
             .withNumPartitions(1)
-            .withPartitionSize(3)
+            .withPartitionSize(1)
             .build();
 
     atomixBuilder.withManagementGroup(systemGroup).withPartitionGroups(partitionGroup);

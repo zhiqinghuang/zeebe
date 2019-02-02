@@ -506,7 +506,7 @@ public class ClusteringRule extends ExternalResource {
                     b ->
                         topologyPredicate.apply(
                             getTopologyFromBroker(b.getConfig().getCluster().getNodeId()))),
-        250);
+        1000);
   }
 
   public long createWorkflowInstanceOnPartition(int partitionId, String bpmnProcessId) {

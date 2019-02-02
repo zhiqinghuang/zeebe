@@ -19,15 +19,13 @@ package io.zeebe.broker.clustering.base.gossip;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.io.Files;
+import io.atomix.cluster.AtomixCluster;
+import io.atomix.cluster.AtomixClusterBuilder;
 import io.atomix.cluster.Node;
 import io.atomix.cluster.discovery.BootstrapDiscoveryBuilder;
 import io.atomix.cluster.discovery.BootstrapDiscoveryProvider;
 import io.atomix.cluster.discovery.NodeDiscoveryProvider;
 import io.atomix.cluster.protocol.SwimMembershipProtocol;
-import io.atomix.core.Atomix;
-import io.atomix.core.AtomixBuilder;
-import io.atomix.protocols.raft.partition.RaftPartitionGroup;
 import io.atomix.utils.net.Address;
 import io.zeebe.broker.Loggers;
 import io.zeebe.broker.system.configuration.BrokerCfg;
@@ -43,12 +41,12 @@ import java.util.List;
 import java.util.Properties;
 import org.slf4j.Logger;
 
-public class AtomixService implements Service<Atomix> {
+public class AtomixService implements Service<AtomixCluster> {
 
   private static final Logger LOG = Loggers.CLUSTERING_LOGGER;
 
   private final BrokerCfg configuration;
-  private Atomix atomix;
+  private AtomixCluster atomix;
 
   public AtomixService(final BrokerCfg configuration) {
     this.configuration = configuration;
@@ -71,8 +69,8 @@ public class AtomixService implements Service<Atomix> {
 
     LOG.error("Setup atomix node in cluster {}", clusterCfg.getClusterName());
 
-    final AtomixBuilder atomixBuilder =
-        Atomix.builder()
+    final AtomixClusterBuilder atomixBuilder =
+        AtomixCluster.builder()
             .withClusterId(clusterCfg.getClusterName())
             .withMembershipProtocol(
                 SwimMembershipProtocol.builder()
@@ -83,30 +81,6 @@ public class AtomixService implements Service<Atomix> {
             .withAddress(Address.from(host, port))
             .withMembershipProvider(discoveryProvider);
 
-    final RaftPartitionGroup partitionGroup =
-        RaftPartitionGroup.builder("raft")
-            .withMembers(
-                Integer.toString(nodeId),
-                Integer.toString((nodeId + 1) % 3),
-                Integer.toString((nodeId + 2) % 3))
-            .withDataDirectory(Files.createTempDir())
-            .withNumPartitions(1)
-            .withPartitionSize(1)
-            .build();
-
-    final RaftPartitionGroup systemGroup =
-        RaftPartitionGroup.builder("system")
-            .withMembers(
-                Integer.toString(nodeId),
-                Integer.toString((nodeId + 1) % 3),
-                Integer.toString((nodeId + 2) % 3))
-            .withDataDirectory(Files.createTempDir())
-            .withNumPartitions(1)
-            .withPartitionSize(1)
-            .build();
-
-    atomixBuilder.withManagementGroup(systemGroup).withPartitionGroups(partitionGroup);
-
     atomix = atomixBuilder.build();
 
     // only logging purpose for now
@@ -116,7 +90,7 @@ public class AtomixService implements Service<Atomix> {
   }
 
   @Override
-  public Atomix get() {
+  public AtomixCluster get() {
     return atomix;
   }
 

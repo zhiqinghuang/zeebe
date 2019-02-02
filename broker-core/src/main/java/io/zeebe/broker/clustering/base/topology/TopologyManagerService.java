@@ -17,7 +17,7 @@
  */
 package io.zeebe.broker.clustering.base.topology;
 
-import io.atomix.core.Atomix;
+import io.atomix.cluster.AtomixCluster;
 import io.zeebe.broker.system.configuration.ClusterCfg;
 import io.zeebe.raft.Raft;
 import io.zeebe.servicecontainer.Injector;
@@ -37,7 +37,7 @@ public class TopologyManagerService implements Service<TopologyManager> {
 
   private final NodeInfo localMember;
   private final ClusterCfg clusterCfg;
-  private final Injector<Atomix> atomixInjector = new Injector<>();
+  private final Injector<AtomixCluster> atomixInjector = new Injector<>();
 
   public TopologyManagerService(NodeInfo localMember, ClusterCfg clusterCfg) {
     this.localMember = localMember;
@@ -46,7 +46,7 @@ public class TopologyManagerService implements Service<TopologyManager> {
 
   @Override
   public void start(ServiceStartContext startContext) {
-    final Atomix atomix = atomixInjector.getValue();
+    final AtomixCluster atomix = atomixInjector.getValue();
 
     topologyManager = new TopologyManagerImpl(atomix, localMember, clusterCfg);
     atomix.getMembershipService().addListener(topologyManager);
@@ -68,7 +68,7 @@ public class TopologyManagerService implements Service<TopologyManager> {
     return raftReference;
   }
 
-  public Injector<Atomix> getAtomixInjector() {
+  public Injector<AtomixCluster> getAtomixInjector() {
     return atomixInjector;
   }
 }

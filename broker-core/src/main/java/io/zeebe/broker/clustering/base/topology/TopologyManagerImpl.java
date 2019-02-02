@@ -18,11 +18,11 @@
 package io.zeebe.broker.clustering.base.topology;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.atomix.cluster.AtomixCluster;
 import io.atomix.cluster.ClusterMembershipEvent;
 import io.atomix.cluster.ClusterMembershipEventListener;
 import io.atomix.cluster.Member;
 import io.atomix.cluster.MemberId;
-import io.atomix.core.Atomix;
 import io.zeebe.broker.Loggers;
 import io.zeebe.broker.system.configuration.ClusterCfg;
 import io.zeebe.protocol.impl.data.cluster.TopologyResponseDto;
@@ -51,14 +51,14 @@ public class TopologyManagerImpl extends Actor
       BufferUtil.wrapString("contact_points");
 
   private final Topology topology;
-  private final Atomix atomix;
+  private final AtomixCluster atomix;
 
   private final ObjectMapper mapper = new ObjectMapper();
 
   private final List<TopologyMemberListener> topologyMemberListers = new ArrayList<>();
   private final List<TopologyPartitionListener> topologyPartitionListers = new ArrayList<>();
 
-  public TopologyManagerImpl(Atomix atomix, NodeInfo localBroker, ClusterCfg clusterCfg) {
+  public TopologyManagerImpl(AtomixCluster atomix, NodeInfo localBroker, ClusterCfg clusterCfg) {
     this.atomix = atomix;
     this.topology =
         new Topology(

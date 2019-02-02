@@ -17,7 +17,7 @@
  */
 package io.zeebe.broker.clustering.base.gossip;
 
-import io.atomix.core.Atomix;
+import io.atomix.cluster.AtomixCluster;
 import io.zeebe.servicecontainer.Injector;
 import io.zeebe.servicecontainer.Service;
 import io.zeebe.servicecontainer.ServiceStartContext;
@@ -28,8 +28,8 @@ import java.util.concurrent.CompletableFuture;
 
 public class AtomixJoinService implements Service<Void> {
 
-  private Atomix atomix;
-  private final Injector<Atomix> atomixInjector = new Injector<>();
+  private AtomixCluster atomix;
+  private final Injector<AtomixCluster> atomixInjector = new Injector<>();
 
   @Override
   public void start(ServiceStartContext startContext) {
@@ -63,7 +63,7 @@ public class AtomixJoinService implements Service<Void> {
     return mappedActorFuture;
   }
 
-  public Injector<Atomix> getAtomixInjector() {
+  public Injector<AtomixCluster> getAtomixInjector() {
     return atomixInjector;
   }
 }

@@ -20,6 +20,7 @@ import io.zeebe.util.ZbLogger;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.util.Iterator;
+import java.util.Random;
 import org.slf4j.Logger;
 
 public class SocketUtil {
@@ -42,6 +43,10 @@ public class SocketUtil {
       }
     } catch (Exception e) {
       LOG.warn("Failed to read test fork number system property");
+    }
+
+    if (testForkNumber == 0) {
+      testForkNumber = new Random().nextInt(32);
     }
 
     final int min = BASE_PORT + testForkNumber * RANGE_SIZE;

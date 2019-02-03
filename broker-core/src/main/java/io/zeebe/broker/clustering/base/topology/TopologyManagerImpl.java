@@ -116,8 +116,6 @@ public class TopologyManagerImpl extends Actor
               raft.getPartitionId(), raft.getReplicationFactor(), memberInfo, raft.getState());
 
           publishLocalPartitions();
-
-          LOG.error("Updated topology #onStateChange {}", topology.asDto().toString());
         });
   }
 

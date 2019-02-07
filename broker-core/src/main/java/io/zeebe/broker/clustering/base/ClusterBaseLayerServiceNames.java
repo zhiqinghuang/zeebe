@@ -21,6 +21,7 @@ import io.atomix.core.Atomix;
 import io.zeebe.broker.clustering.base.partitions.Partition;
 import io.zeebe.broker.clustering.base.raft.RaftPersistentConfigurationManager;
 import io.zeebe.broker.clustering.base.topology.TopologyManager;
+import io.zeebe.distributedlog.DistributedLogstream;
 import io.zeebe.raft.Raft;
 import io.zeebe.servicecontainer.ServiceName;
 
@@ -37,6 +38,9 @@ public class ClusterBaseLayerServiceNames {
       ServiceName.newServiceName("cluster.base.atomix", Atomix.class);
   public static final ServiceName<Void> ATOMIX_JOIN_SERVICE =
       ServiceName.newServiceName("cluster.base.atomix.join", Void.class);
+
+  public static final ServiceName<DistributedLogstream> DISTRIBUTED_LOG_SERVICE =
+      ServiceName.newServiceName("cluster.base.distributed.log", DistributedLogstream.class);
 
   public static final ServiceName<Void> RAFT_BOOTSTRAP_SERVICE =
       ServiceName.newServiceName("cluster.base.raft.bootstrap", Void.class);

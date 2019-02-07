@@ -27,6 +27,7 @@ import io.atomix.core.Atomix;
 import io.atomix.core.AtomixBuilder;
 import io.atomix.primitive.partition.MemberGroupStrategy;
 import io.atomix.protocols.backup.partition.PrimaryBackupPartitionGroup;
+import io.atomix.protocols.raft.partition.RaftPartitionGroup;
 import io.atomix.utils.net.Address;
 import io.zeebe.broker.Loggers;
 import io.zeebe.broker.system.configuration.BrokerCfg;
@@ -35,6 +36,7 @@ import io.zeebe.broker.system.configuration.NetworkCfg;
 import io.zeebe.broker.system.configuration.SocketBindingCfg;
 import io.zeebe.servicecontainer.Service;
 import io.zeebe.servicecontainer.ServiceStartContext;
+import java.io.File;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
@@ -88,15 +90,41 @@ public class AtomixService implements Service<Atomix> {
             .withNumPartitions(1)
             .build();
 
-    atomixBuilder.withManagementGroup(systemGroup).withPartitionGroups(partitionGroup);
+    String raftPartitionGroupName = "raft-atomix";
+    String raftDirectoryName = configuration.getData().getDirectories().get(0);
+    File raftDirectory = new File(raftDirectoryName, raftPartitionGroupName);
+    if(!raftDirectory.mkdir()){
+      throw new RuntimeException("Could not create directory " + raftDirectoryName + "/" + raftPartitionGroupName);
+    }
+
+    final RaftPartitionGroup distributedlogGroup = RaftPartitionGroup.builder(raftPartitionGroupName)
+      .withNumPartitions(1) // TODO: for now
+      .withPartitionSize(configuration.getCluster().getReplicationFactor())
+      .withMembers(getRaftGroupMembers(clusterCfg))
+      .withDataDirectory(raftDirectory)
+      .withFlushOnCommit()
+      .build();
+
+    atomixBuilder.withManagementGroup(systemGroup).withPartitionGroups(distributedlogGroup);
     // }
 
     atomix = atomixBuilder.build();
+
   }
 
   @Override
   public Atomix get() {
     return atomix;
+  }
+
+  private List<String> getRaftGroupMembers(ClusterCfg clusterCfg) {
+    int clusterSize = clusterCfg.getClusterSize();
+    List<String> members = new ArrayList<>();
+    for(int i = 0; i < clusterSize; i++){
+       members.add(Integer.toString(i));
+    }
+
+    return members;
   }
 
   private NodeDiscoveryProvider createDiscoveryProvider(

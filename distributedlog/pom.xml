@@ -3,13 +3,17 @@
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <parent>
-    <artifactId>zeebe-root</artifactId>
     <groupId>io.zeebe</groupId>
+    <artifactId>zb-parent</artifactId>
     <version>0.15.0-SNAPSHOT</version>
+    <relativePath>../parent</relativePath>
   </parent>
-  <modelVersion>4.0.0</modelVersion>
 
+  <modelVersion>4.0.0</modelVersion>
+  <name>Zeebe Distributed Log</name>
   <artifactId>zb-distributed-log</artifactId>
+  <version>0.15.0-SNAPSHOT</version>
+  <packaging>jar</packaging>
 
   <dependencies>
     <!-- https://mvnrepository.com/artifact/io.atomix/atomix -->

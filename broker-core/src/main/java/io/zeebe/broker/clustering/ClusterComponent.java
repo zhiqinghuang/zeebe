@@ -20,6 +20,7 @@ package io.zeebe.broker.clustering;
 import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.ATOMIX_JOIN_SERVICE;
 import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.ATOMIX_SERVICE;
 import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.CLUSTERING_BASE_LAYER;
+import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.DISTRIBUTED_LOG_SERVICE;
 import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.RAFT_BOOTSTRAP_SERVICE;
 import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.RAFT_CONFIGURATION_MANAGER;
 import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.RAFT_SERVICE_GROUP;
@@ -28,10 +29,12 @@ import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.TOPOL
 import static io.zeebe.broker.transport.TransportServiceNames.MANAGEMENT_API_CLIENT_NAME;
 import static io.zeebe.broker.transport.TransportServiceNames.REPLICATION_API_CLIENT_NAME;
 import static io.zeebe.broker.transport.TransportServiceNames.clientTransport;
+import static io.zeebe.logstreams.impl.service.LogStreamServiceNames.logStreamServiceName;
 
 import io.zeebe.broker.clustering.base.connections.RemoteAddressManager;
 import io.zeebe.broker.clustering.base.gossip.AtomixJoinService;
 import io.zeebe.broker.clustering.base.gossip.AtomixService;
+import io.zeebe.broker.clustering.base.log.DistributedLogService;
 import io.zeebe.broker.clustering.base.partitions.BootstrapPartitions;
 import io.zeebe.broker.clustering.base.raft.RaftPersistentConfigurationManagerService;
 import io.zeebe.broker.clustering.base.topology.NodeInfo;
@@ -40,8 +43,10 @@ import io.zeebe.broker.system.Component;
 import io.zeebe.broker.system.SystemContext;
 import io.zeebe.broker.system.configuration.BrokerCfg;
 import io.zeebe.broker.system.configuration.NetworkCfg;
+import io.zeebe.logstreams.log.LogStream;
 import io.zeebe.servicecontainer.CompositeServiceBuilder;
 import io.zeebe.servicecontainer.ServiceContainer;
+import io.zeebe.servicecontainer.ServiceName;
 
 /** Installs the clustering component into the broker. */
 public class ClusterComponent implements Component {
@@ -92,6 +97,9 @@ public class ClusterComponent implements Component {
     initGossip(baseLayerInstall, context, localMember);
     initPartitions(baseLayerInstall, context);
 
+    // Currently assumes there is only one partition.
+    initDistributedLog(baseLayerInstall);
+
     context.addRequiredStartAction(baseLayerInstall.install());
   }
 
@@ -127,5 +135,18 @@ public class ClusterComponent implements Component {
         .dependency(
             RAFT_CONFIGURATION_MANAGER, raftBootstrapService.getConfigurationManagerInjector())
         .install();
+  }
+
+  private void initDistributedLog(final CompositeServiceBuilder baseLayerInstall) {
+    final DistributedLogService distributedLogService = new DistributedLogService();
+
+    final String logName = "partition-0";
+    final ServiceName<LogStream> logStreamServiceName = logStreamServiceName(logName);
+    baseLayerInstall
+        .createService(DISTRIBUTED_LOG_SERVICE, distributedLogService)
+        .dependency(ATOMIX_SERVICE, distributedLogService.getAtomixInjector())
+        .dependency(logStreamServiceName, distributedLogService.getLogStreamInjector())
+        .install();
+
   }
 }

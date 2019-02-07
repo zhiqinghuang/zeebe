@@ -78,12 +78,7 @@ public class AtomixService implements Service<Atomix> {
             .withProperties(properties)
             .withAddress(Address.from(host, port))
             .withMembershipProvider(discoveryProvider);
-    // if (nodeId == 0) { //Configuring only on one node causes lot of delay when starting node
-    final PrimaryBackupPartitionGroup partitionGroup =
-        PrimaryBackupPartitionGroup.builder("group")
-            .withMemberGroupStrategy(MemberGroupStrategy.NODE_AWARE)
-            .withNumPartitions(1)
-            .build();
+
     final PrimaryBackupPartitionGroup systemGroup =
         PrimaryBackupPartitionGroup.builder("system")
             .withMemberGroupStrategy(MemberGroupStrategy.NODE_AWARE)
@@ -93,9 +88,15 @@ public class AtomixService implements Service<Atomix> {
     String raftPartitionGroupName = "raft-atomix";
     String raftDirectoryName = configuration.getData().getDirectories().get(0);
     File raftDirectory = new File(raftDirectoryName, raftPartitionGroupName);
-    if(!raftDirectory.mkdir()){
-      throw new RuntimeException("Could not create directory " + raftDirectoryName + "/" + raftPartitionGroupName);
-    }
+    LOG.info("creating atomix raft parition group with directory {}", raftDirectoryName);
+
+    //FIXME: cleaner way to create data directories.
+    if (!raftDirectory.mkdirs()) {
+      if (!raftDirectory.exists()) {
+        throw new RuntimeException(
+            "Could not create directory " + raftDirectoryName + "/" + raftPartitionGroupName);
+        }
+      }
 
     final RaftPartitionGroup distributedlogGroup = RaftPartitionGroup.builder(raftPartitionGroupName)
       .withNumPartitions(1) // TODO: for now
@@ -106,7 +107,6 @@ public class AtomixService implements Service<Atomix> {
       .build();
 
     atomixBuilder.withManagementGroup(systemGroup).withPartitionGroups(distributedlogGroup);
-    // }
 
     atomix = atomixBuilder.build();
 
@@ -119,11 +119,11 @@ public class AtomixService implements Service<Atomix> {
 
   private List<String> getRaftGroupMembers(ClusterCfg clusterCfg) {
     int clusterSize = clusterCfg.getClusterSize();
+    //node ids are always 0 to clusterSize - 1
     List<String> members = new ArrayList<>();
     for(int i = 0; i < clusterSize; i++){
        members.add(Integer.toString(i));
     }
-
     return members;
   }
 

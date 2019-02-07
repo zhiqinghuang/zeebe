@@ -36,7 +36,8 @@ public class AtomixJoinService implements Service<Void> {
     atomix = atomixInjector.getValue();
 
     final CompletableFuture<Void> startFuture = atomix.start();
-    startContext.async(mapCompletableFuture(startFuture));
+    /* FIXME: don't wait on the future now.. because we can't start the brokers in sequence when using raft partition group */
+    // startContext.async(mapCompletableFuture(startFuture));
   }
 
   @Override

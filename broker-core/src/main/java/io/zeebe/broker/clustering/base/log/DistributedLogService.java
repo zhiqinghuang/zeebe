@@ -30,6 +30,7 @@ import io.zeebe.servicecontainer.Injector;
 import io.zeebe.servicecontainer.Service;
 import io.zeebe.servicecontainer.ServiceStartContext;
 import io.zeebe.servicecontainer.ServiceStopContext;
+import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
 
 public class DistributedLogService implements Service<DistributedLogstream> {
@@ -52,16 +53,14 @@ public class DistributedLogService implements Service<DistributedLogstream> {
 
     DistributedLog.setLogStreamForPartition0(logStream);
 
-    this.distributedLog =
-        atomix
-            .<DistributedLogstreamBuilder, DistributedLogstreamConfig, DistributedLogstream>
-                primitiveBuilder(distributedLogName, DistributedLogstreamType.instance())
-            .withProtocol(MultiRaftProtocol.builder().build())
-            // TODO: Protocol must be changed to RAFT. Using primary backup only for testing
-            // .withProtocol(MultiPrimaryProtocol.builder().build())
-            .build();
+    //FIXME: Check if we can safely call atomix.start() here again.
+    CompletableFuture<Void> future = atomix.start();
 
-    LOG.info("Set up distributed log primitive");
+    future.thenApply(
+        a -> {
+          onAtomixStart();
+          return null;
+        });
   }
 
   @Override
@@ -78,5 +77,15 @@ public class DistributedLogService implements Service<DistributedLogstream> {
 
   public Injector<Atomix> getAtomixInjector() {
     return atomixInjector;
+  }
+
+  private void onAtomixStart() {
+    atomix
+        .<DistributedLogstreamBuilder, DistributedLogstreamConfig, DistributedLogstream>
+            primitiveBuilder(distributedLogName, DistributedLogstreamType.instance())
+        .withProtocol(MultiRaftProtocol.builder().build())
+        .build();
+
+    LOG.info("Set up distributed log primitive");
   }
 }

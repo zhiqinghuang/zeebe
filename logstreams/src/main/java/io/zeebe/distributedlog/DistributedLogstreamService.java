@@ -15,13 +15,11 @@
  */
 package io.zeebe.distributedlog;
 
-import io.atomix.primitive.event.Event;
+import io.atomix.primitive.operation.Command;
+import java.nio.ByteBuffer;
 
-public interface DistributedLogstreamClient {
+public interface DistributedLogstreamService {
 
-  @Event
-  void appended();
-
-  @Event
-  void failed();
+  @Command
+  void append(ByteBuffer blockBuffer);
 }

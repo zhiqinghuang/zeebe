@@ -17,6 +17,8 @@ package io.zeebe.logstreams.impl;
 
 import io.zeebe.dispatcher.BlockPeek;
 import io.zeebe.dispatcher.Subscription;
+import io.zeebe.distributedlog.DistributedLog;
+import io.zeebe.distributedlog.DistributedLogstream;
 import io.zeebe.logstreams.spi.LogStorage;
 import io.zeebe.util.sched.Actor;
 import io.zeebe.util.sched.channel.ActorConditions;
@@ -42,6 +44,8 @@ public class LogStorageAppender extends Actor {
   private Runnable peekedBlockHandler = this::appendBlock;
   private int maxAppendBlockSize;
 
+  private DistributedLogstream distributedLog;
+
   public LogStorageAppender(
       String name,
       LogStorage logStorage,
@@ -62,6 +66,10 @@ public class LogStorageAppender extends Actor {
 
   @Override
   protected void onActorStarting() {
+
+    //TODO: Could be null if the service has not yet started??
+    distributedLog = DistributedLog.getDistributedLog();
+
     actor.consume(writeBufferSubscription, this::peekBlock);
   }
 
@@ -77,7 +85,28 @@ public class LogStorageAppender extends Actor {
     final ByteBuffer rawBuffer = blockPeek.getRawBuffer();
     final MutableDirectBuffer buffer = blockPeek.getBuffer();
 
-    final long address = logStorage.append(rawBuffer);
+    //returns when completed
+    try {
+      distributedLog.append(rawBuffer);
+      blockPeek.markCompleted();
+      logStorageAppendConditions.signalConsumers();
+    } catch (Exception e) {
+      isFailed.set(true);
+
+      final long positionOfFirstEventInBlock = LogEntryDescriptor.getPosition(buffer, 0);
+      LOG.info(
+        "Failed to append log storage on position '{}'. Stop writing to log storage until recovered.",
+        positionOfFirstEventInBlock);
+
+      // recover log storage from failure - see zeebe-io/zeebe#500
+      peekedBlockHandler = this::discardBlock;
+
+      discardBlock();
+    }
+
+
+
+    /*final long address = logStorage.append(rawBuffer);
     if (address >= 0) {
       blockPeek.markCompleted();
       logStorageAppendConditions.signalConsumers();
@@ -93,7 +122,7 @@ public class LogStorageAppender extends Actor {
       peekedBlockHandler = this::discardBlock;
 
       discardBlock();
-    }
+    }*/
   }
 
   private void discardBlock() {

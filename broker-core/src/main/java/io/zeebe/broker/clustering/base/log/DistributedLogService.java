@@ -30,7 +30,6 @@ import io.zeebe.servicecontainer.Injector;
 import io.zeebe.servicecontainer.Service;
 import io.zeebe.servicecontainer.ServiceStartContext;
 import io.zeebe.servicecontainer.ServiceStopContext;
-import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
 
 public class DistributedLogService implements Service<DistributedLogstream> {
@@ -51,16 +50,18 @@ public class DistributedLogService implements Service<DistributedLogstream> {
     this.logStream = logStreamInjector.getValue();
     this.atomix = atomixInjector.getValue();
 
+    //FIXME: better way to access logstorage inside the primitive
     DistributedLog.setLogStreamForPartition0(logStream);
 
     //FIXME: Check if we can safely call atomix.start() here again.
-    CompletableFuture<Void> future = atomix.start();
+   // CompletableFuture<Void> future = atomix.start();
 
-    future.thenApply(
-        a -> {
+    //Can create the primitive only after Atomix have started
+   // future.thenApply(
+   //     a -> {
           onAtomixStart();
-          return null;
-        });
+    //      return a;
+     //   });
   }
 
   @Override
@@ -80,11 +81,14 @@ public class DistributedLogService implements Service<DistributedLogstream> {
   }
 
   private void onAtomixStart() {
-    atomix
+
+    distributedLog = atomix
         .<DistributedLogstreamBuilder, DistributedLogstreamConfig, DistributedLogstream>
             primitiveBuilder(distributedLogName, DistributedLogstreamType.instance())
         .withProtocol(MultiRaftProtocol.builder().build())
         .build();
+
+    DistributedLog.setDistributedLog(distributedLog);
 
     LOG.info("Set up distributed log primitive");
   }

@@ -108,6 +108,11 @@
       <artifactId>zb-db</artifactId>
       <scope>compile</scope>
     </dependency>
+    <dependency>
+      <groupId>io.atomix</groupId>
+      <artifactId>atomix-primitive</artifactId>
+      <version>3.1.5</version>
+    </dependency>
 
   </dependencies>
 

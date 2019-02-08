@@ -15,12 +15,11 @@
  */
 package io.zeebe.distributedlog;
 
-import io.atomix.primitive.SyncPrimitive;
+import io.atomix.primitive.event.Event;
 
-public interface DistributedLogstream extends SyncPrimitive {
+public interface DistributedLogstreamClient {
 
-  void append(String bytes);
+  @Event
+  void appended();
 
-  @Override
-  AsyncDistributedLogstream async();
 }

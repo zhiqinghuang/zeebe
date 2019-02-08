@@ -24,6 +24,7 @@ import io.zeebe.distributedlog.AsyncDistributedLogstream;
 import io.zeebe.distributedlog.DistributedLogstream;
 import io.zeebe.distributedlog.DistributedLogstreamClient;
 import io.zeebe.distributedlog.DistributedLogstreamService;
+import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
@@ -43,21 +44,21 @@ public class DistributedLogstreamProxy
   }
 
   @Override
-  public CompletableFuture<Void> append(String bytes) {
+  public CompletableFuture<Void> append(ByteBuffer blockBuffer) {
     appendFuture = new CompletableFuture<Void>();
 
     getProxyClient()
-        .acceptBy(name(), service -> service.append(bytes))
-        .whenComplete(
-            (result, error) -> {
-              if (error != null) {
-                appendFuture.completeExceptionally(error);
-                LOG.error("Append completed with an error.", error);
-              } else {
-                appendFuture.complete(null);
-                LOG.debug("Append was successful.");
-              }
-            });
+      .acceptBy(name(), service -> service.append(blockBuffer))
+      .whenComplete(
+        (result, error) -> {
+          if (error != null) {
+            appendFuture.completeExceptionally(error);
+            LOG.error("Append completed with an error.", error);
+          } else {
+            appendFuture.complete(null);
+            LOG.debug("Append was successful.");
+          }
+        });
     return appendFuture.thenApply(result -> result).whenComplete((r, e) -> appendFuture = null);
   }
 
@@ -73,13 +74,6 @@ public class DistributedLogstreamProxy
 
   @Override
   public void appended() {
-    if (appendFuture != null) {
-      appendFuture.complete(null);
-    }
-  }
-
-  @Override
-  public void failed() {
     if (appendFuture != null) {
       appendFuture.complete(null);
     }

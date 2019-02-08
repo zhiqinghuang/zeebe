@@ -24,6 +24,8 @@ import io.zeebe.distributedlog.DistributedLogstreamClient;
 import io.zeebe.distributedlog.DistributedLogstreamService;
 import io.zeebe.distributedlog.DistributedLogstreamType;
 import io.zeebe.logstreams.log.LogStream;
+import io.zeebe.logstreams.spi.LogStorage;
+import java.nio.ByteBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,6 +37,7 @@ public class DefaultDistributedLogstreamService
       LoggerFactory.getLogger(DefaultDistributedLogstreamService.class);
 
   private LogStream logstream;
+  private LogStorage logStorage;
 
   private long currentPosition;
 
@@ -42,6 +45,7 @@ public class DefaultDistributedLogstreamService
     super(DistributedLogstreamType.instance(), DistributedLogstreamClient.class);
     currentPosition = 0;
     this.logstream = DistributedLog.getLogStreamForPartition0(); // TODO: this is temporary hack.
+    this.logStorage = logstream.getLogStorage();
     LOG.info("I will write to logstream {}", logstream.getLogName());
   }
 
@@ -52,25 +56,27 @@ public class DefaultDistributedLogstreamService
   }
 
   @Override
-  public void append(String bytes) {
-    LOG.info("Appended to {} at position {}", getServiceName(), currentPosition);
-    currentPosition++;
-    // LOG.info("{} {} {}", getServiceName(), getServiceId().id(), getPrimitiveType().name());
+  public void append(ByteBuffer blockBuffer) {
+    long position = logStorage.append(blockBuffer);
+    if(position > 0)
+    {
+      currentPosition = position;
+      LOG.info("Appended at position {}", currentPosition);
+    }
+    else {
+      LOG.info("Error Appending : {} ", position);
+    }
+   // return position; //TODO
   }
 
   @Override
   public void backup(BackupOutput backupOutput) {
     // TODO
-    backupOutput.writeObject(currentPosition);
-    LOG.info("BackUp at pos {}", currentPosition);
   }
 
   @Override
   public void restore(BackupInput backupInput) {
     // TODO
-    final long pos = backupInput.readObject();
-    currentPosition = pos;
-    LOG.info("restore at pos {}", pos);
   }
 
   @Override

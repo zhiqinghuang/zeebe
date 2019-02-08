@@ -267,7 +267,8 @@ public class Raft extends Actor
         .dependency(leaderServiceName)
         .install();
 
-    for (final RaftMember raftMember : raftMembers.getMemberList()) {
+    //Don't do raft replication. It will be handled by distributed Log
+   /* for (final RaftMember raftMember : raftMembers.getMemberList()) {
       final ServiceName<Void> replicateLogControllerServiceName =
           replicateLogConrollerServiceName(raftName, term, raftMember.getNodeId());
       final MemberReplicateLogController replicationController =
@@ -276,7 +277,7 @@ public class Raft extends Actor
           .createService(replicateLogControllerServiceName, replicationController)
           .dependency(leaderServiceName)
           .install();
-    }
+    }*/
 
     final ActorFuture<Void> whenLeader = installOperation.install();
 

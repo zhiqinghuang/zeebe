@@ -15,13 +15,13 @@
  */
 package io.zeebe.distributedlog;
 
-import io.atomix.primitive.AsyncPrimitive;
-import java.util.concurrent.CompletableFuture;
+import io.atomix.primitive.SyncPrimitive;
+import java.nio.ByteBuffer;
 
-public interface AsyncDistributedLogstream extends AsyncPrimitive {
+public interface DistributedLogstream extends SyncPrimitive {
 
-  CompletableFuture<Void> append(String bytes);
+  void append(ByteBuffer blockBuffer);
 
   @Override
-  DistributedLogstream sync();
+  AsyncDistributedLogstream async();
 }

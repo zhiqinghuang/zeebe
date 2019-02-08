@@ -104,8 +104,6 @@ public class LogStorageAppender extends Actor {
       e.printStackTrace();
     }
 
-
-
     /*final long address = logStorage.append(rawBuffer);
     if (address >= 0) {
       blockPeek.markCompleted();

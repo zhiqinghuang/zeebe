@@ -16,10 +16,9 @@
 package io.zeebe.distributedlog;
 
 import io.atomix.primitive.operation.Command;
-import java.nio.ByteBuffer;
 
 public interface DistributedLogstreamService {
 
   @Command
-  void append(ByteBuffer blockBuffer);
+  void append(byte[] blockBuffer);
 }

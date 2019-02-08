@@ -37,12 +37,12 @@ public class DistributedLogstreamType
     return "Distributed-logstream";
   }
 
-  /*@Override
+  /* @Override
   public Namespace namespace() {
     default Namespace namespace() {
       return Namespace.builder().register(Namespaces.BASIC).register(new Class[]{ServiceConfig.class}).build();
-    }
-  }*/
+    }*/
+  //}
 
   @Override
   public DistributedLogstreamConfig newConfig() {

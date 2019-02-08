@@ -27,6 +27,7 @@ import io.zeebe.dispatcher.Dispatcher;
 import io.zeebe.dispatcher.DispatcherBuilder;
 import io.zeebe.dispatcher.Dispatchers;
 import io.zeebe.dispatcher.Subscription;
+import io.zeebe.distributedlog.DistributedLogstream;
 import io.zeebe.logstreams.impl.LogBlockIndexWriter;
 import io.zeebe.logstreams.impl.LogStorageAppender;
 import io.zeebe.logstreams.impl.LogStreamBuilder;
@@ -142,6 +143,9 @@ public class LogStreamService implements LogStream, Service<LogStream> {
             .dependency(
                 logStorageInjector.getInjectedServiceName(),
                 appenderService.getLogStorageInjector())
+            .dependency(
+                ServiceName.newServiceName(
+                    "cluster.base.distributed.log", DistributedLogstream.class))
             .install();
 
     return installOperation.installAndReturn(logStorageAppenderServiceName);

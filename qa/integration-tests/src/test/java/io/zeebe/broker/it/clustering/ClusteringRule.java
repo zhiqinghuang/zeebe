@@ -151,16 +151,16 @@ public class ClusteringRule extends ExternalResource {
   @Override
   protected void before() throws IOException {
     // create brokers
-    /*for (int nodeId = 0; nodeId < clusterSize; nodeId++) {
-      getBroker(nodeId);
-    }*/
-
-    CompletableFuture<Void> oneBrokerStarted = new CompletableFuture<>();
     for (int nodeId = 0; nodeId < clusterSize; nodeId++) {
-      oneBrokerStarted = createBrokersInParallel(nodeId);
+      getBroker(nodeId);
     }
 
-    oneBrokerStarted.join(); //If one node is started rest will be started soon
+//    CompletableFuture<Void> oneBrokerStarted = new CompletableFuture<>();
+//    for (int nodeId = 0; nodeId < clusterSize; nodeId++) {
+//      oneBrokerStarted = createBrokersInParallel(nodeId); //This doesn't work.
+//    }
+//
+//    oneBrokerStarted.join(); //If one node is started rest will be started soon
 
     // create gateway
     gateway = createGateway();

@@ -44,7 +44,6 @@
     <module>exporters/elasticsearch-exporter</module>
     <module>protocol-impl</module>
     <module>zb-db</module>
-    <module>distributedlog</module>
   </modules>
 
   <scm>

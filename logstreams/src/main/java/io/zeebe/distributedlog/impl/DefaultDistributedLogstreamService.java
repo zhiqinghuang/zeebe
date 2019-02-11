@@ -58,8 +58,8 @@ public class DefaultDistributedLogstreamService
   @Override
   public void append(byte[] blockBuffer) {
     //UnsafeBuffer buffer = new UnsafeBuffer(blockBuffer);
-    ByteBuffer buffer = ByteBuffer.wrap(blockBuffer);
-    long position = logStorage.append(buffer);
+    final ByteBuffer buffer = ByteBuffer.wrap(blockBuffer);
+    final long position = logStorage.append(buffer);
     if(position > 0)
     {
       currentPosition = position;

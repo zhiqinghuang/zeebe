@@ -47,7 +47,7 @@ public class DistributedLogstreamProxy
   public CompletableFuture<Void> append(ByteBuffer blockBuffer) {
     appendFuture = new CompletableFuture<Void>();
 
-    byte[] buffer = new byte[blockBuffer.remaining()];
+    final byte[] buffer = new byte[blockBuffer.remaining()];
     blockBuffer.get(buffer);
 
     getProxyClient()

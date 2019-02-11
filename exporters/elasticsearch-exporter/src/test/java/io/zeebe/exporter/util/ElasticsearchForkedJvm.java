@@ -15,16 +15,21 @@
  */
 package io.zeebe.exporter.util;
 
+import java.io.File;
 import java.io.IOException;
-import java.net.URISyntaxException;
+import java.io.InputStream;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.apache.http.HttpHost;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.HttpClients;
 import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClient;
@@ -35,13 +40,20 @@ import org.elasticsearch.client.security.PutUserRequest;
 import org.elasticsearch.client.security.RefreshPolicy;
 import org.elasticsearch.client.security.user.User;
 import org.elasticsearch.client.security.user.privileges.Role;
+import org.junit.rules.TemporaryFolder;
 import pl.allegro.tech.embeddedelasticsearch.EmbeddedElastic;
 import pl.allegro.tech.embeddedelasticsearch.PopularProperties;
 
 public class ElasticsearchForkedJvm implements ElasticsearchNode<ElasticsearchForkedJvm> {
 
+  // since we use a custom trustStore for our tests, the download fails when using HTTPS, so we
+  // download using HTTP; hopefully this is temporary
+  private static final String NON_HTTPS_URL =
+      "http://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-{VERSION}.zip";
   private static final int DEFAULT_HTTP_PORT = 9200;
   private static final int DEFAULT_TCP_PORT = 9300;
+
+  private final TemporaryFolder temporaryFolder;
 
   private EmbeddedElastic.Builder builder;
   private EmbeddedElastic elastic;
@@ -49,28 +61,45 @@ public class ElasticsearchForkedJvm implements ElasticsearchNode<ElasticsearchFo
   private boolean isAuthEnabled;
   private String username;
   private String password;
+  private File installationDirectory;
 
   private final List<String> javaOptions = new ArrayList<>();
 
-  public ElasticsearchForkedJvm() {
-    this(EmbeddedElastic.builder());
+  public ElasticsearchForkedJvm(TemporaryFolder temporaryFolder) {
+    this(temporaryFolder, EmbeddedElastic.builder());
     configure();
   }
 
-  public ElasticsearchForkedJvm(EmbeddedElastic.Builder builder) {
+  public ElasticsearchForkedJvm(TemporaryFolder temporaryFolder, EmbeddedElastic.Builder builder) {
     this.builder = builder;
+    this.temporaryFolder = temporaryFolder;
   }
 
   protected void configure() {
     final String version = ElasticsearchClient.class.getPackage().getImplementationVersion();
+    final URL downloadUrl;
+
+    try {
+      downloadUrl = new URL(NON_HTTPS_URL.replace("{VERSION}", version));
+    } catch (MalformedURLException e) {
+      throw new RuntimeException(e);
+    }
+
+    try {
+      installationDirectory = temporaryFolder.newFolder();
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+
     builder
-        .withElasticVersion(version)
         .withSetting("discovery.type", "single-node")
         .withSetting(PopularProperties.CLUSTER_NAME, "zeebe")
         .withSetting(PopularProperties.HTTP_PORT, DEFAULT_HTTP_PORT)
         .withSetting(PopularProperties.TRANSPORT_TCP_PORT, DEFAULT_TCP_PORT)
         .withCleanInstallationDirectoryOnStop(true)
-        .withStartTimeout(2, TimeUnit.MINUTES);
+        .withStartTimeout(2, TimeUnit.MINUTES)
+        .withInstallationDirectory(installationDirectory)
+        .withDownloadUrl(downloadUrl);
   }
 
   @Override
@@ -80,6 +109,18 @@ public class ElasticsearchForkedJvm implements ElasticsearchNode<ElasticsearchFo
 
       try {
         elastic.start();
+      } catch (RuntimeException e) {
+        // as there is no way to tell the forked JVM to use SSL when doing its health check for now,
+        // the exception is caught and a simple retry is performed with the correct host
+        if (isSslEnabled) {
+          try {
+            HttpClients.createMinimal().execute(new HttpGet(getRestHttpHost().toString()));
+          } catch (IOException ioe) {
+            throw new RuntimeException(ioe);
+          }
+        } else {
+          throw e;
+        }
       } catch (IOException | InterruptedException e) {
         throw new RuntimeException(e);
       }
@@ -139,18 +180,21 @@ public class ElasticsearchForkedJvm implements ElasticsearchNode<ElasticsearchFo
 
   @Override
   public ElasticsearchForkedJvm withKeyStore(String keyStore) {
-    final Path keyStorePath;
+    final InputStream contents = this.getClass().getClassLoader().getResourceAsStream(keyStore);
+    final Path keyStorePath =
+        new File(installationDirectory, "keystore.p12").toPath().toAbsolutePath();
+
     try {
-      keyStorePath =
-          Paths.get(getClass().getClassLoader().getResource(keyStore).toURI()).toAbsolutePath();
-    } catch (URISyntaxException e) {
+      Files.copy(contents, keyStorePath);
+    } catch (IOException e) {
       throw new RuntimeException(e);
     }
 
     withXpack();
     builder
         .withSetting("xpack.security.http.ssl.enabled", true)
-        .withSetting("xpack.security.http.ssl.keystore.path", keyStorePath.toString());
+        .withSetting("xpack.security.http.ssl.keystore.path", keyStorePath.toString())
+        .withSetting("path.repo", installationDirectory); // necessary for the ES security manager
 
     isSslEnabled = true;
     return this;

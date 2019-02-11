@@ -72,6 +72,11 @@
       <artifactId>zb-exporter-asserts</artifactId>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>io.zeebe</groupId>
+      <artifactId>zeebe-protocol-test-util</artifactId>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
 

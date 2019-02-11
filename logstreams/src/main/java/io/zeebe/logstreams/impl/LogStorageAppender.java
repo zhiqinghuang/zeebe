@@ -85,7 +85,7 @@ public class LogStorageAppender extends Actor {
     final ByteBuffer rawBuffer = blockPeek.getRawBuffer();
     final MutableDirectBuffer buffer = blockPeek.getBuffer();
 
-    distributedLog = DistributedLog.getDistributedLog();
+    //distributedLog = DistributedLog.getDistributedLog();
 
     //LOG.info("Trying to write to distributed log {}", distributedLog);
     //returns when completed
@@ -99,7 +99,6 @@ public class LogStorageAppender extends Actor {
 
     } catch (Exception e) {
       //try again
-      distributedLog = DistributedLog.getDistributedLog();
       LOG.info("Write failed");
       e.printStackTrace();
     }

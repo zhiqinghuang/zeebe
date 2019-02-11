@@ -88,7 +88,7 @@ public class AtomixService implements Service<Atomix> {
     String raftPartitionGroupName = "raft-atomix";
     String raftDirectoryName = configuration.getData().getDirectories().get(0);
     File raftDirectory = new File(raftDirectoryName, raftPartitionGroupName);
-    LOG.info("creating atomix raft parition group with directory {}", raftDirectoryName);
+    LOG.info("creating atomix raft partition group with directory {}", raftDirectoryName);
 
     //FIXME: cleaner way to create data directories.
     if (!raftDirectory.mkdirs()) {
@@ -110,6 +110,7 @@ public class AtomixService implements Service<Atomix> {
 
     atomix = atomixBuilder.build();
 
+    //atomix.getMembershipService().getLocalMember().config().
   }
 
   @Override

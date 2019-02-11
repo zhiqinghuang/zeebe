@@ -21,6 +21,7 @@ import io.zeebe.logstreams.impl.LoggedEventImpl;
 import io.zeebe.logstreams.impl.log.index.LogBlockIndex;
 import io.zeebe.logstreams.spi.LogStorage;
 import io.zeebe.logstreams.spi.ReadResultProcessor;
+import io.zeebe.util.ZbLogger;
 import io.zeebe.util.allocation.AllocatedBuffer;
 import io.zeebe.util.allocation.BufferAllocator;
 import io.zeebe.util.allocation.DirectBufferAllocator;
@@ -60,6 +61,7 @@ public class BufferedLogStreamReader implements LogStreamReader {
   private ByteBuffer byteBuffer;
   private int bufferOffset;
   private DirectBuffer directBuffer = new UnsafeBuffer(0, 0);
+  private ZbLogger LOG = new ZbLogger(BufferedLogStreamReader.class);
 
   public BufferedLogStreamReader() {
     this(false);
@@ -208,6 +210,7 @@ public class BufferedLogStreamReader implements LogStreamReader {
         wrapReturnedEvent(nextEvent.getFragmentOffset());
         // find next event in log
         readNextEvent();
+       // LOG.info("Reading event{}", returnedEvent);
         return returnedEvent;
       case WRAP_NOT_CALLED:
         throw new IllegalStateException("Iterator not initialized");

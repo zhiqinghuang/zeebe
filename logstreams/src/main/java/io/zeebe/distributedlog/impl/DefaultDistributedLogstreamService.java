@@ -41,12 +41,12 @@ public class DefaultDistributedLogstreamService
 
   private long currentPosition;
 
-  public DefaultDistributedLogstreamService() {
+  public DefaultDistributedLogstreamService(DistributedLogstreamServiceConfig config) {
     super(DistributedLogstreamType.instance(), DistributedLogstreamClient.class);
     currentPosition = 0;
     this.logstream = DistributedLog.getLogStreamForPartition0(); // TODO: this is temporary hack.
     this.logStorage = logstream.getLogStorage();
-    LOG.info("I will write to logstream {}", logstream.getLogName());
+    LOG.info("ConfigId {}, I will write to logstream {}", config.getConfigId(), logstream.getLogName());
   }
 
   @Override

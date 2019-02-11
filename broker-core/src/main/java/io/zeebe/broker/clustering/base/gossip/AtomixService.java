@@ -85,32 +85,33 @@ public class AtomixService implements Service<Atomix> {
             .withNumPartitions(1)
             .build();
 
-    String raftPartitionGroupName = "raft-atomix";
-    String raftDirectoryName = configuration.getData().getDirectories().get(0);
-    File raftDirectory = new File(raftDirectoryName, raftPartitionGroupName);
+    final String raftPartitionGroupName = "raft-atomix";
+    final String raftDirectoryName = configuration.getData().getDirectories().get(0);
+    final File raftDirectory = new File(raftDirectoryName, raftPartitionGroupName);
     LOG.info("creating atomix raft partition group with directory {}", raftDirectoryName);
 
-    //FIXME: cleaner way to create data directories.
+    // FIXME: directory is also created when installing PartitionServices.
     if (!raftDirectory.mkdirs()) {
       if (!raftDirectory.exists()) {
         throw new RuntimeException(
             "Could not create directory " + raftDirectoryName + "/" + raftPartitionGroupName);
-        }
       }
+    }
 
-    final RaftPartitionGroup distributedlogGroup = RaftPartitionGroup.builder(raftPartitionGroupName)
-      .withNumPartitions(1) // TODO: for now
-      .withPartitionSize(configuration.getCluster().getReplicationFactor())
-      .withMembers(getRaftGroupMembers(clusterCfg))
-      .withDataDirectory(raftDirectory)
-      .withFlushOnCommit()
-      .build();
+    final RaftPartitionGroup distributedlogGroup =
+        RaftPartitionGroup.builder(raftPartitionGroupName)
+            .withNumPartitions(1) // TODO: for now
+            .withPartitionSize(configuration.getCluster().getReplicationFactor())
+            .withMembers(getRaftGroupMembers(clusterCfg))
+            .withDataDirectory(raftDirectory)
+            .withFlushOnCommit()
+            .build();
 
     atomixBuilder.withManagementGroup(systemGroup).withPartitionGroups(distributedlogGroup);
 
     atomix = atomixBuilder.build();
 
-    //atomix.getMembershipService().getLocalMember().config().
+    // atomix.getMembershipService().getLocalMember().config().
   }
 
   @Override
@@ -119,11 +120,11 @@ public class AtomixService implements Service<Atomix> {
   }
 
   private List<String> getRaftGroupMembers(ClusterCfg clusterCfg) {
-    int clusterSize = clusterCfg.getClusterSize();
-    //node ids are always 0 to clusterSize - 1
-    List<String> members = new ArrayList<>();
-    for(int i = 0; i < clusterSize; i++){
-       members.add(Integer.toString(i));
+    final int clusterSize = clusterCfg.getClusterSize();
+    // node ids are always 0 to clusterSize - 1
+    final List<String> members = new ArrayList<>();
+    for (int i = 0; i < clusterSize; i++) {
+      members.add(Integer.toString(i));
     }
     return members;
   }

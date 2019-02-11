@@ -59,7 +59,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -155,13 +154,6 @@ public class ClusteringRule extends ExternalResource {
       getBroker(nodeId);
     }
 
-//    CompletableFuture<Void> oneBrokerStarted = new CompletableFuture<>();
-//    for (int nodeId = 0; nodeId < clusterSize; nodeId++) {
-//      oneBrokerStarted = createBrokersInParallel(nodeId); //This doesn't work.
-//    }
-//
-//    oneBrokerStarted.join(); //If one node is started rest will be started soon
-
     // create gateway
     gateway = createGateway();
     gateway.start();
@@ -180,18 +172,6 @@ public class ClusteringRule extends ExternalResource {
 
     waitForPartitionReplicationFactor();
     waitUntilBrokersInTopology();
-  }
-
-  private CompletableFuture<Void> createBrokersInParallel(final int nodeId) {
-    CompletableFuture<Void> brokerStarted = new CompletableFuture<>();
-    new Thread(
-            () -> {
-              Broker broker = createBroker(nodeId);
-              brokers.put(nodeId, broker);
-              brokerStarted.complete(null);
-            })
-        .start();
-    return brokerStarted;
   }
 
   private Broker getBroker(final int nodeId) {

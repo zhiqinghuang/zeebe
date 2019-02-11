@@ -46,7 +46,8 @@ public class DefaultDistributedLogstreamService
     currentPosition = 0;
     this.logstream = DistributedLog.getLogStreamForPartition0(); // TODO: this is temporary hack.
     this.logStorage = logstream.getLogStorage();
-    LOG.info("ConfigId {}, I will write to logstream {}", config.getConfigId(), logstream.getLogName());
+    LOG.info(
+        "ConfigId {}, I will write to logstream {}", config.getConfigId(), logstream.getLogName());
   }
 
   @Override
@@ -57,18 +58,16 @@ public class DefaultDistributedLogstreamService
 
   @Override
   public void append(byte[] blockBuffer) {
-    //UnsafeBuffer buffer = new UnsafeBuffer(blockBuffer);
+    // UnsafeBuffer buffer = new UnsafeBuffer(blockBuffer);
     final ByteBuffer buffer = ByteBuffer.wrap(blockBuffer);
     final long position = logStorage.append(buffer);
-    if(position > 0)
-    {
+    if (position > 0) {
       currentPosition = position;
       LOG.info("Appended at position {}", currentPosition);
-    }
-    else {
+    } else {
       LOG.info("Error Appending : {} ", position);
     }
-   // return position; //TODO
+    // return position; //TODO
   }
 
   @Override

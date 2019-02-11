@@ -67,7 +67,7 @@ public class LogStorageAppender extends Actor {
   @Override
   protected void onActorStarting() {
 
-    //TODO: Could be null if the service has not yet started??
+    // TODO: Could be null if the service has not yet started??
     distributedLog = DistributedLog.getDistributedLog();
 
     actor.consume(writeBufferSubscription, this::peekBlock);
@@ -85,10 +85,10 @@ public class LogStorageAppender extends Actor {
     final ByteBuffer rawBuffer = blockPeek.getRawBuffer();
     final MutableDirectBuffer buffer = blockPeek.getBuffer();
 
-    //distributedLog = DistributedLog.getDistributedLog();
+    // distributedLog = DistributedLog.getDistributedLog();
 
-    //LOG.info("Trying to write to distributed log {}", distributedLog);
-    //returns when completed
+    // LOG.info("Trying to write to distributed log {}", distributedLog);
+    // returns when completed
     try {
 
       distributedLog.append(rawBuffer);
@@ -98,7 +98,7 @@ public class LogStorageAppender extends Actor {
       LOG.info("Setting commited position as {}", getCurrentAppenderPosition());
 
     } catch (Exception e) {
-      //try again
+      // try again
       LOG.info("Write failed");
       e.printStackTrace();
     }

@@ -112,7 +112,8 @@ public class ClusterComponent implements Component {
     baseLayerInstall.createService(ATOMIX_SERVICE, atomixService).install();
 
     final AtomixJoinService atomixJoinService = new AtomixJoinService();
-    context.getServiceContainer()
+    context
+        .getServiceContainer()
         .createService(ATOMIX_JOIN_SERVICE, atomixJoinService)
         .dependency(TOPOLOGY_MANAGER_SERVICE)
         .dependency(ATOMIX_SERVICE, atomixJoinService.getAtomixInjector())
@@ -129,7 +130,8 @@ public class ClusterComponent implements Component {
 
     final BootstrapPartitions raftBootstrapService =
         new BootstrapPartitions(context.getBrokerConfiguration());
-    context.getServiceContainer()
+    context
+        .getServiceContainer()
         .createService(RAFT_BOOTSTRAP_SERVICE, raftBootstrapService)
         .dependency(ATOMIX_JOIN_SERVICE)
         .dependency(
@@ -137,17 +139,18 @@ public class ClusterComponent implements Component {
         .install();
   }
 
-  private void initDistributedLog(final CompositeServiceBuilder baseLayerInstall, final SystemContext context) {
+  private void initDistributedLog(
+      final CompositeServiceBuilder baseLayerInstall, final SystemContext context) {
     final DistributedLogService distributedLogService = new DistributedLogService();
 
     final String logName = "partition-0";
     final ServiceName<LogStream> logStreamServiceName = logStreamServiceName(logName);
-    context.getServiceContainer()
+    context
+        .getServiceContainer()
         .createService(DISTRIBUTED_LOG_SERVICE, distributedLogService)
         .dependency(ATOMIX_SERVICE, distributedLogService.getAtomixInjector())
         .dependency(ATOMIX_JOIN_SERVICE)
         .dependency(logStreamServiceName, distributedLogService.getLogStreamInjector())
         .install();
-
   }
 }

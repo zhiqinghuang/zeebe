@@ -27,8 +27,7 @@ public class DistributedLogstreamServiceConfig extends ServiceConfig {
     return configId;
   }
 
-  private int configId; //for test
- //TODO: Add config params here
-
+  private int configId; // for test
+  // TODO: Add config params here
 
 }

@@ -51,17 +51,17 @@ public class DistributedLogstreamProxy
     blockBuffer.get(buffer);
 
     getProxyClient()
-      .acceptBy(name(), service -> service.append(buffer))
-      .whenComplete(
-        (result, error) -> {
-          if (error != null) {
-            appendFuture.completeExceptionally(error);
-            LOG.error("Append completed with an error.", error);
-          } else {
-            appendFuture.complete(null);
-            LOG.debug("Append was successful.");
-          }
-        });
+        .acceptBy(name(), service -> service.append(buffer))
+        .whenComplete(
+            (result, error) -> {
+              if (error != null) {
+                appendFuture.completeExceptionally(error);
+                LOG.error("Append completed with an error.", error);
+              } else {
+                appendFuture.complete(null);
+                LOG.debug("Append was successful.");
+              }
+            });
     return appendFuture.thenApply(result -> result).whenComplete((r, e) -> appendFuture = null);
   }
 

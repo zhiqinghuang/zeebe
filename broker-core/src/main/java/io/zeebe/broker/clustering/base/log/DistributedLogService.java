@@ -50,18 +50,18 @@ public class DistributedLogService implements Service<DistributedLogstream> {
     this.logStream = logStreamInjector.getValue();
     this.atomix = atomixInjector.getValue();
 
-    //FIXME: better way to access logstorage inside the primitive
+    // FIXME: better way to access logstorage inside the primitive
     DistributedLog.setLogStreamForPartition0(logStream);
 
-    //FIXME: Check if we can safely call atomix.start() here again.
-   // CompletableFuture<Void> future = atomix.start();
+    // FIXME: Check if we can safely call atomix.start() here again.
+    // CompletableFuture<Void> future = atomix.start();
 
-    //Can create the primitive only after Atomix have started
-   // future.thenApply(
-   //     a -> {
-          onAtomixStart();
+    // Can create the primitive only after Atomix have started
+    // future.thenApply(
+    //     a -> {
+    onAtomixStart();
     //      return a;
-     //   });
+    //   });
   }
 
   @Override
@@ -82,11 +82,12 @@ public class DistributedLogService implements Service<DistributedLogstream> {
 
   private void onAtomixStart() {
 
-    distributedLog = atomix
-        .<DistributedLogstreamBuilder, DistributedLogstreamConfig, DistributedLogstream>
-            primitiveBuilder(distributedLogName, DistributedLogstreamType.instance())
-        .withProtocol(MultiRaftProtocol.builder().build())
-        .build();
+    distributedLog =
+        atomix
+            .<DistributedLogstreamBuilder, DistributedLogstreamConfig, DistributedLogstream>
+                primitiveBuilder(distributedLogName, DistributedLogstreamType.instance())
+            .withProtocol(MultiRaftProtocol.builder().build())
+            .build();
 
     DistributedLog.setDistributedLog(distributedLog);
 

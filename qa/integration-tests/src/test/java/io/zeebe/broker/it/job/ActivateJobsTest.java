@@ -55,7 +55,7 @@ public class ActivateJobsTest {
   private static final Map<String, Object> CUSTOM_HEADERS = Collections.singletonMap("foo", "bar");
   private static final Map<String, Object> PAYLOAD = Collections.singletonMap("hello", "world");
 
-  @Rule public ClusteringRule clusteringRule = new ClusteringRule(1,3,3);
+  @Rule public ClusteringRule clusteringRule = new ClusteringRule();
   @Rule public GrpcClientRule clientRule = new GrpcClientRule(clusteringRule);
 
   @Rule public Timeout timeout = Timeout.seconds(60);
@@ -79,7 +79,7 @@ public class ActivateJobsTest {
     // given
     final String worker = "testWorker";
     final Duration timeout = Duration.ofMinutes(4);
-    final int amount = 1; //clusteringRule.getPartitionIds().size() * 3;
+    final int amount = 1; // clusteringRule.getPartitionIds().size() * 3;
 
     final List<Long> jobKeys = createJobs(amount);
 

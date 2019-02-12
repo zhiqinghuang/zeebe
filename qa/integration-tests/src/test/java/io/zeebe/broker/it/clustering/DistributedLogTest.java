@@ -22,7 +22,6 @@ import io.zeebe.model.bpmn.Bpmn;
 import io.zeebe.model.bpmn.BpmnModelInstance;
 import io.zeebe.model.bpmn.builder.ProcessBuilder;
 import io.zeebe.test.broker.protocol.clientapi.ClientApiRule;
-import io.zeebe.test.broker.protocol.clientapi.ExecuteCommandResponse;
 import java.util.Collection;
 import org.junit.Rule;
 import org.junit.Test;
@@ -58,7 +57,7 @@ public class DistributedLogTest {
     final BpmnModelInstance process = processBuilder.startEvent().endEvent().done();
 
     // when
-    final ExecuteCommandResponse resp = apiRule.partitionClient().deployWithResponse(process);
+   // final ExecuteCommandResponse resp = apiRule.partitionClient().deployWithResponse(process);
 
     // TODO: read from logstreams and check if replication was successful
     final Collection<Broker> brokers = clusteringRule.getBrokers();

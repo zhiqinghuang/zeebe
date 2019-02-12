@@ -53,7 +53,7 @@ public class DefaultDistributedLogstreamService
   @Override
   protected void configure(ServiceExecutor executor) {
     super.configure(executor);
-    LOG.info("Creating log file for {}", getServiceName());
+    LOG.info("Creating log file for {}. I'm member {}", getServiceName(), this.getLocalMemberId());
   }
 
   @Override

@@ -27,15 +27,20 @@ import io.atomix.core.Atomix;
 import io.atomix.core.AtomixBuilder;
 import io.atomix.primitive.partition.MemberGroupStrategy;
 import io.atomix.protocols.backup.partition.PrimaryBackupPartitionGroup;
+import io.atomix.protocols.raft.partition.RaftPartitionGroup;
 import io.atomix.utils.net.Address;
 import io.zeebe.broker.Loggers;
 import io.zeebe.broker.system.configuration.BrokerCfg;
 import io.zeebe.broker.system.configuration.ClusterCfg;
+import io.zeebe.broker.system.configuration.DataCfg;
 import io.zeebe.broker.system.configuration.NetworkCfg;
 import io.zeebe.broker.system.configuration.SocketBindingCfg;
 import io.zeebe.servicecontainer.Service;
 import io.zeebe.servicecontainer.ServiceStartContext;
+import java.io.File;
+import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
@@ -76,22 +81,50 @@ public class AtomixService implements Service<Atomix> {
             .withProperties(properties)
             .withAddress(Address.from(host, port))
             .withMembershipProvider(discoveryProvider);
-    // if (nodeId == 0) { //Configuring only on one node causes lot of delay when starting node
-    final PrimaryBackupPartitionGroup partitionGroup =
-        PrimaryBackupPartitionGroup.builder("group")
-            .withMemberGroupStrategy(MemberGroupStrategy.NODE_AWARE)
-            .withNumPartitions(1)
-            .build();
+
     final PrimaryBackupPartitionGroup systemGroup =
         PrimaryBackupPartitionGroup.builder("system")
             .withMemberGroupStrategy(MemberGroupStrategy.NODE_AWARE)
             .withNumPartitions(1)
             .build();
 
+    final String raftPartitionGroupName = "raft-atomix";
+
+    final DataCfg dataConfiguration = configuration.getData();
+    String rootDirectory = dataConfiguration.getDirectories().get(0);
+    final File raftDirectory = new File(rootDirectory, raftPartitionGroupName);
+    // FIXME: directory is also created when installing PartitionServices.
+    if (!raftDirectory.exists()) {
+      try {
+        raftDirectory.getParentFile().mkdirs();
+        Files.createDirectory(raftDirectory.toPath());
+      } catch (final IOException e) {
+        throw new RuntimeException("Unable to create directory " + raftDirectory, e);
+      }
+    }
+
+    final RaftPartitionGroup partitionGroup =
+        RaftPartitionGroup.builder(raftPartitionGroupName)
+            .withNumPartitions(configuration.getCluster().getPartitionsCount())
+            .withPartitionSize(configuration.getCluster().getReplicationFactor())
+            .withMembers(getRaftGroupMembers(clusterCfg))
+            .withDataDirectory(raftDirectory)
+            .withFlushOnCommit()
+            .build();
+
     atomixBuilder.withManagementGroup(systemGroup).withPartitionGroups(partitionGroup);
-    // }
 
     atomix = atomixBuilder.build();
+  }
+
+  private List<String> getRaftGroupMembers(ClusterCfg clusterCfg) {
+    final int clusterSize = clusterCfg.getClusterSize();
+    // node ids are always 0 to clusterSize - 1
+    final List<String> members = new ArrayList<>();
+    for (int i = 0; i < clusterSize; i++) {
+      members.add(Integer.toString(i));
+    }
+    return members;
   }
 
   @Override

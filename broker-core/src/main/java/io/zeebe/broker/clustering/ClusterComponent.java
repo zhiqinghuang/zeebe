@@ -89,13 +89,13 @@ public class ClusterComponent implements Component {
             remoteAddressManager.getReplicationClientTransportInjector())
         .install();
 
-    initGossip(baseLayerInstall, context, localMember);
+    initAtomixcluster(baseLayerInstall, context, localMember);
     initPartitions(baseLayerInstall, context);
 
     context.addRequiredStartAction(baseLayerInstall.install());
   }
 
-  private void initGossip(
+  private void initAtomixcluster(
       final CompositeServiceBuilder baseLayerInstall,
       final SystemContext context,
       final NodeInfo localMember) {
@@ -104,7 +104,10 @@ public class ClusterComponent implements Component {
     baseLayerInstall.createService(ATOMIX_SERVICE, atomixService).install();
 
     final AtomixJoinService atomixJoinService = new AtomixJoinService();
-    baseLayerInstall
+    // With RaftPartitionGroup AtomixJoinService completes only when majority of brokers have
+    // started and join the group. Hence don't add the servie to the baselayer.
+    context
+        .getServiceContainer()
         .createService(ATOMIX_JOIN_SERVICE, atomixJoinService)
         .dependency(TOPOLOGY_MANAGER_SERVICE)
         .dependency(ATOMIX_SERVICE, atomixJoinService.getAtomixInjector())
@@ -121,7 +124,7 @@ public class ClusterComponent implements Component {
 
     final BootstrapPartitions raftBootstrapService =
         new BootstrapPartitions(context.getBrokerConfiguration());
-    baseLayerInstall
+    context.getServiceContainer()
         .createService(RAFT_BOOTSTRAP_SERVICE, raftBootstrapService)
         .dependency(ATOMIX_JOIN_SERVICE)
         .dependency(

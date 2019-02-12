@@ -46,6 +46,12 @@ public class GossipClusteringTest {
 
     // then
     assertThat(topologyBrokers).hasSize(3);
+
+    try {
+      Thread.sleep(5000);
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
   }
 
   @Test

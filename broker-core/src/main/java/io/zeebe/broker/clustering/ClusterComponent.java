@@ -20,6 +20,7 @@ package io.zeebe.broker.clustering;
 import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.ATOMIX_JOIN_SERVICE;
 import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.ATOMIX_SERVICE;
 import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.CLUSTERING_BASE_LAYER;
+import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.LEADER_ELECTION_SERVICE;
 import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.RAFT_BOOTSTRAP_SERVICE;
 import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.RAFT_CONFIGURATION_MANAGER;
 import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.RAFT_SERVICE_GROUP;
@@ -29,6 +30,7 @@ import static io.zeebe.broker.transport.TransportServiceNames.MANAGEMENT_API_CLI
 import static io.zeebe.broker.transport.TransportServiceNames.REPLICATION_API_CLIENT_NAME;
 import static io.zeebe.broker.transport.TransportServiceNames.clientTransport;
 
+import io.zeebe.broker.clustering.base.LeaderElectionService;
 import io.zeebe.broker.clustering.base.connections.RemoteAddressManager;
 import io.zeebe.broker.clustering.base.gossip.AtomixJoinService;
 import io.zeebe.broker.clustering.base.gossip.AtomixService;
@@ -112,6 +114,14 @@ public class ClusterComponent implements Component {
         .dependency(TOPOLOGY_MANAGER_SERVICE)
         .dependency(ATOMIX_SERVICE, atomixJoinService.getAtomixInjector())
         .install();
+
+    LeaderElectionService leaderElectionService = new LeaderElectionService();
+    context
+        .getServiceContainer()
+        .createService(LEADER_ELECTION_SERVICE, leaderElectionService)
+        .dependency(ATOMIX_SERVICE, leaderElectionService.getAtomixInjector())
+        .dependency(ATOMIX_JOIN_SERVICE)
+        .install();
   }
 
   private void initPartitions(
@@ -124,7 +134,8 @@ public class ClusterComponent implements Component {
 
     final BootstrapPartitions raftBootstrapService =
         new BootstrapPartitions(context.getBrokerConfiguration());
-    context.getServiceContainer()
+    context
+        .getServiceContainer()
         .createService(RAFT_BOOTSTRAP_SERVICE, raftBootstrapService)
         .dependency(ATOMIX_JOIN_SERVICE)
         .dependency(

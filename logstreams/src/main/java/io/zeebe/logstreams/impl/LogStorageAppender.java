@@ -77,6 +77,7 @@ public class LogStorageAppender extends Actor {
     final ByteBuffer rawBuffer = blockPeek.getRawBuffer();
     final MutableDirectBuffer buffer = blockPeek.getBuffer();
 
+    //Here instead send to Raft-leader
     final long address = logStorage.append(rawBuffer);
     if (address >= 0) {
       blockPeek.markCompleted();

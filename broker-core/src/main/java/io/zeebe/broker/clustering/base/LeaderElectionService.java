@@ -1,6 +1,5 @@
 package io.zeebe.broker.clustering.base;
 
-import io.atomix.cluster.MemberId;
 import io.atomix.core.Atomix;
 import io.atomix.core.election.LeaderElection;
 import io.atomix.protocols.raft.MultiRaftProtocol;
@@ -20,6 +19,12 @@ public class LeaderElectionService implements Service<LeaderElection> {
 
   private LeaderElection<String> leaderElection;
 
+  private final int partitionId;
+
+  public LeaderElectionService(int partitionId) {
+    this.partitionId = partitionId;
+  }
+
   @Override
   public void start(ServiceStartContext startContext) {
     LOG.info("Creating leader election");
@@ -29,30 +34,23 @@ public class LeaderElectionService implements Service<LeaderElection> {
     // TODO: create election for partitions that the node owns.
     leaderElection =
         atomix
-            .<String>leaderElectionBuilder("partition-0")
-            .withProtocol(MultiRaftProtocol.builder().build())
+            .<String>leaderElectionBuilder(String.valueOf(partitionId))
+            .withProtocol(
+                MultiRaftProtocol.builder()
+                    // TODO: It is better to define our own partitioner so that this leaderelection run on
+                    // the corresponding partition.
+                    // .withPartitioner((k, p) -> p.get(Integer.parseInt(k)))
+                    .build())
             .build();
-
-    // TODO: promote the primary leader
-    leaderElection.run(atomix.getMembershipService().getLocalMember().id());
-
-    LOG.info("Running leader election");
-
-    // TODO:
-    leaderElection.addListener(
-        e -> {
-          LOG.info(
-              "Member {} receives leadership event{}",
-              atomix.getMembershipService().getLocalMember().id(),
-              e);
-        });
   }
 
   @Override
-  public void stop(ServiceStopContext stopContext) {}
+  public void stop(ServiceStopContext stopContext) {
+    leaderElection.close();
+  }
 
   @Override
-  public LeaderElection<MemberId> get() {
+  public LeaderElection<String> get() {
     return leaderElection;
   }
 

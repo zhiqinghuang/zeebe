@@ -17,10 +17,16 @@
  */
 package io.zeebe.broker.clustering.base.partitions;
 
+import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.ATOMIX_JOIN_SERVICE;
+import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.ATOMIX_SERVICE;
+import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.leaderElectionRunServiceName;
+import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.leaderElectionServiceName;
 import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.partitionInstallServiceName;
 import static io.zeebe.broker.transport.TransportServiceNames.REPLICATION_API_CLIENT_NAME;
 import static io.zeebe.broker.transport.TransportServiceNames.clientTransport;
 
+import io.zeebe.broker.clustering.base.LeaderElectionRunService;
+import io.zeebe.broker.clustering.base.LeaderElectionService;
 import io.zeebe.broker.clustering.base.raft.RaftPersistentConfiguration;
 import io.zeebe.broker.clustering.base.raft.RaftPersistentConfigurationManager;
 import io.zeebe.broker.system.configuration.BrokerCfg;
@@ -40,6 +46,7 @@ import org.agrona.collections.IntArrayList;
 public class BootstrapPartitions implements Service<Void> {
   private final Injector<RaftPersistentConfigurationManager> configurationManagerInjector =
       new Injector<>();
+
   private final BrokerCfg brokerCfg;
   private final PartitionsLeaderMatrix partitionsLeaderMatrix;
   private final IntArrayList followingPartitions;
@@ -61,6 +68,7 @@ public class BootstrapPartitions implements Service<Void> {
   @Override
   public void start(final ServiceStartContext startContext) {
     configurationManager = configurationManagerInjector.getValue();
+
     this.startContext = startContext;
     startContext.run(
         () -> {
@@ -98,18 +106,40 @@ public class BootstrapPartitions implements Service<Void> {
 
   private void installPartition(
       final ServiceStartContext startContext, final RaftPersistentConfiguration configuration) {
-    final String partitionName = Partition.getPartitionName(configuration.getPartitionId());
+    int partitionId = configuration.getPartitionId();
+    final String partitionName = Partition.getPartitionName(partitionId);
     final ServiceName<Void> partitionInstallServiceName =
         partitionInstallServiceName(partitionName);
 
     final PartitionInstallService partitionInstallService =
         new PartitionInstallService(brokerCfg, configuration);
 
+    LeaderElectionService leaderElectionService = new LeaderElectionService(partitionId);
+    startContext
+        .createService(leaderElectionServiceName(partitionId), leaderElectionService)
+        .dependency(ATOMIX_SERVICE, leaderElectionService.getAtomixInjector())
+        .dependency(ATOMIX_JOIN_SERVICE)
+        .install();
+
     startContext
         .createService(partitionInstallServiceName, partitionInstallService)
         .dependency(
+            leaderElectionServiceName(partitionId),
+            partitionInstallService.getLeaderElectionInjector())
+        .dependency(ATOMIX_SERVICE, partitionInstallService.getAtomixInjector())
+        .dependency(
             clientTransport(REPLICATION_API_CLIENT_NAME),
             partitionInstallService.getClientTransportInjector())
+        .install();
+
+    LeaderElectionRunService leaderElectionRunService = new LeaderElectionRunService();
+
+    startContext
+        .createService(leaderElectionRunServiceName(partitionId), leaderElectionRunService)
+        .dependency(
+            leaderElectionServiceName(partitionId),
+            leaderElectionRunService.getLeaderElectionInjector())
+        .dependency(ATOMIX_SERVICE, leaderElectionRunService.getAtomixInjector())
         .install();
   }
 

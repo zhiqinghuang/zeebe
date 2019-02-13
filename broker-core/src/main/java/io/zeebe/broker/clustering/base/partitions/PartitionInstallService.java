@@ -17,16 +17,17 @@
  */
 package io.zeebe.broker.clustering.base.partitions;
 
-import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.FOLLOWER_PARTITION_GROUP_NAME;
-import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.LEADER_PARTITION_GROUP_NAME;
 import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.RAFT_SERVICE_GROUP;
-import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.followerPartitionServiceName;
 import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.leaderPartitionServiceName;
+import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.partitionRoleChangeListenerServiceName;
 import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.raftInstallServiceName;
 import static io.zeebe.broker.logstreams.LogStreamServiceNames.stateStorageFactoryServiceName;
-import static io.zeebe.raft.RaftServiceNames.leaderInitialEventCommittedServiceName;
 import static io.zeebe.raft.RaftServiceNames.raftServiceName;
 
+import io.atomix.cluster.MemberId;
+import io.atomix.core.Atomix;
+import io.atomix.core.election.Leader;
+import io.atomix.core.election.LeaderElection;
 import io.zeebe.broker.Loggers;
 import io.zeebe.broker.clustering.base.raft.RaftPersistentConfiguration;
 import io.zeebe.broker.clustering.base.topology.PartitionInfo;
@@ -71,6 +72,13 @@ public class PartitionInstallService implements Service<Void>, RaftStateListener
   private ServiceName<LogStream> logStreamServiceName;
 
   private ServiceName<StateStorageFactory> stateStorageFactoryServiceName;
+  private final Injector<LeaderElection> leaderElectionInjector = new Injector<>();
+  private LeaderElection<String> leaderElection;
+  private final Injector<Atomix> atomixInjector = new Injector<>();
+  private Atomix atomix;
+  private MemberId localMember;
+
+  private String logName;
 
   public PartitionInstallService(
       final BrokerCfg brokerCfg, final RaftPersistentConfiguration configuration) {
@@ -89,16 +97,44 @@ public class PartitionInstallService implements Service<Void>, RaftStateListener
   public void start(final ServiceStartContext startContext) {
     this.startContext = startContext;
 
-    final ClientTransport clientTransport = clientTransportInjector.getValue();
+    leaderElection = leaderElectionInjector.getValue();
+    atomix = atomixInjector.getValue();
+    localMember = atomix.getMembershipService().getLocalMember().id();
 
     final int partitionId = configuration.getPartitionId();
-    final String logName = String.format("partition-%d", partitionId);
+    logName = String.format("partition-%d", partitionId);
 
-    final ServiceName<Void> raftInstallServiceName = raftInstallServiceName(partitionId);
-    final ServiceName<Raft> raftServiceName = raftServiceName(logName);
+    final ServiceName<Void> raftInstallServiceName =
+        raftInstallServiceName(partitionId); // TODO: change the name
 
     final CompositeServiceBuilder partitionInstall =
         startContext.createComposite(raftInstallServiceName);
+
+    installPartitionStorage(partitionInstall, partitionId, logName);
+    installRaftPartitionServices(partitionInstall, partitionId, logName);
+    installPartitionRoleChangeListeners(partitionInstall, partitionId);
+    partitionInstall.install();
+  }
+
+  private void installPartitionRoleChangeListeners(
+      CompositeServiceBuilder partitionInstall, int partitionId) {
+    PartitionRoleChangeListeners service =
+        new PartitionRoleChangeListeners(
+            atomix,
+            leaderElection,
+            logName,
+            partitionInfo,
+            logStreamServiceName,
+            stateStorageFactoryServiceName);
+
+    partitionInstall
+        .createService(partitionRoleChangeListenerServiceName(logName), service)
+        .dependency(logStreamServiceName, service.getLogStreamInjector())
+        .install();
+  }
+
+  private void installPartitionStorage(
+      CompositeServiceBuilder partitionInstall, int partitionId, String logName) {
 
     final String snapshotPath = configuration.getSnapshotsDirectory().getAbsolutePath();
 
@@ -116,6 +152,12 @@ public class PartitionInstallService implements Service<Void>, RaftStateListener
     partitionInstall
         .createService(stateStorageFactoryServiceName, stateStorageFactoryService)
         .install();
+  }
+
+  private void installRaftPartitionServices(
+      CompositeServiceBuilder partitionInstall, int partitionId, String logName) {
+    final ClientTransport clientTransport = clientTransportInjector.getValue();
+    final ServiceName<Raft> raftServiceName = raftServiceName(logName);
 
     final OneToOneRingBufferChannel messageBuffer =
         new OneToOneRingBufferChannel(
@@ -142,8 +184,6 @@ public class PartitionInstallService implements Service<Void>, RaftStateListener
         .dependency(stateStorageFactoryServiceName)
         .group(RAFT_SERVICE_GROUP)
         .install();
-
-    partitionInstall.install();
   }
 
   @Override
@@ -155,7 +195,9 @@ public class PartitionInstallService implements Service<Void>, RaftStateListener
 
     ActorFuture<Void> leaveHandledFuture = CompletableActorFuture.completed(null);
 
-    if (startContext.hasService(partitionServiceName)) {
+    // TODO: Should we remove leader services when quorum is not reached? Probably new leader
+    // election is triggered and the services are removed/installed
+    /* if (startContext.hasService(partitionServiceName)) {
       if (raftMemberSize < replicationFactor) {
         LOG.debug(
             "Removing partition service for {}. Replication factor not reached, got {}/{}.",
@@ -171,7 +213,7 @@ public class PartitionInstallService implements Service<Void>, RaftStateListener
             raftMemberSize,
             replicationFactor);
       }
-    }
+    }*/
 
     return leaveHandledFuture;
   }
@@ -179,7 +221,12 @@ public class PartitionInstallService implements Service<Void>, RaftStateListener
   @Override
   public void onMemberJoined(final Raft raft, final Collection<Integer> currentNodeIds) {
     if (raft.getState() == RaftState.LEADER) {
-      installLeaderPartition(raft);
+      Leader<String> currentLeader = leaderElection.getLeadership().leader();
+      if (currentLeader == null || !currentLeader.id().equals(localMember.id())) {
+        leaderElection.anoint(localMember.id());
+      }
+      // Don't do anything here. All services are now handled via atomix event listener
+      // installLeaderPartition(raft.getName());
     }
   }
 
@@ -187,79 +234,33 @@ public class PartitionInstallService implements Service<Void>, RaftStateListener
   public void onStateChange(final Raft raft, final RaftState raftState) {
     switch (raftState) {
       case LEADER:
-        removeFollowerPartitionService(raft);
-        installLeaderPartition(raft);
+        String localMemberId = atomix.getMembershipService().getLocalMember().id().id();
+        boolean success = leaderElection.anoint(localMemberId);
+        if (!success) {
+          LOG.error("Couldn't anoint myself {}", localMemberId);
+        }
+        LOG.info("Anoint myself {} for partition {}", localMemberId, partitionInfo.getPartitionId());
         break;
       case FOLLOWER:
-        installFollowerPartition(raft);
+        // Don't do anything. the leader will anoint itself and we will receive the events
+        // installFollowerPartition(raft.getName());
         break;
       case CANDIDATE:
       default:
-        removeFollowerPartitionService(raft);
+        // removeFollowerPartitionService(raft.getName());
         break;
-    }
-  }
-
-  private void installLeaderPartition(final Raft raft) {
-    final ServiceName<Partition> partitionServiceName = leaderPartitionServiceName(raft.getName());
-
-    final int raftMemberSize = raft.getMemberSize() + 1; // raft does not count itself as member
-    final int replicationFactor = partitionInfo.getReplicationFactor();
-
-    if (!startContext.hasService(partitionServiceName)) {
-      if (raftMemberSize >= replicationFactor) {
-        LOG.debug(
-            "Installing partition service for {}. Replication factor reached, got {}/{}.",
-            partitionInfo,
-            raftMemberSize,
-            replicationFactor);
-
-        final Partition partition = new Partition(partitionInfo, RaftState.LEADER);
-
-        startContext
-            .createService(partitionServiceName, partition)
-            .dependency(leaderInitialEventCommittedServiceName(raft.getName(), raft.getTerm()))
-            .dependency(logStreamServiceName, partition.getLogStreamInjector())
-            .dependency(stateStorageFactoryServiceName, partition.getStateStorageFactoryInjector())
-            .group(LEADER_PARTITION_GROUP_NAME)
-            .install();
-      } else {
-        LOG.debug(
-            "Not installing partition service for {}. Replication factor not reached, got {}/{}.",
-            partitionInfo,
-            raftMemberSize,
-            replicationFactor);
-      }
-    }
-  }
-
-  private void installFollowerPartition(final Raft raft) {
-    final Partition partition = new Partition(partitionInfo, RaftState.FOLLOWER);
-    final ServiceName<Partition> partitionServiceName =
-        followerPartitionServiceName(raft.getName());
-
-    if (!startContext.hasService(partitionServiceName)) {
-      LOG.debug("Installing follower partition service for {}", partitionInfo);
-      startContext
-          .createService(partitionServiceName, partition)
-          .dependency(logStreamServiceName, partition.getLogStreamInjector())
-          .dependency(stateStorageFactoryServiceName, partition.getStateStorageFactoryInjector())
-          .group(FOLLOWER_PARTITION_GROUP_NAME)
-          .install();
-    }
-  }
-
-  private void removeFollowerPartitionService(final Raft raft) {
-    final ServiceName<Partition> partitionServiceName =
-        followerPartitionServiceName(raft.getName());
-
-    if (startContext.hasService(partitionServiceName)) {
-      LOG.debug("Removing follower partition service for partition {}", partitionInfo);
-      startContext.removeService(partitionServiceName);
     }
   }
 
   public Injector<ClientTransport> getClientTransportInjector() {
     return clientTransportInjector;
+  }
+
+  public Injector<LeaderElection> getLeaderElectionInjector() {
+    return this.leaderElectionInjector;
+  }
+
+  public Injector<Atomix> getAtomixInjector() {
+    return atomixInjector;
   }
 }

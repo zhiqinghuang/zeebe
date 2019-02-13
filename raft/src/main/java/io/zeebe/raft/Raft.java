@@ -33,7 +33,6 @@ import io.zeebe.logstreams.log.LogStream;
 import io.zeebe.msgpack.value.ValueArray;
 import io.zeebe.raft.controller.AppendRaftEventController;
 import io.zeebe.raft.controller.LeaderCommitInitialEvent;
-import io.zeebe.raft.controller.LeaderOpenLogStreamAppenderService;
 import io.zeebe.raft.controller.MemberReplicateLogController;
 import io.zeebe.raft.controller.RaftJoinService;
 import io.zeebe.raft.controller.RaftPollService;
@@ -248,9 +247,10 @@ public class Raft extends Actor
     final CompositeServiceBuilder installOperation =
         serviceContext.createComposite(installOperationServiceName);
 
-    installOperation
-        .createService(openLogStreamServiceName, new LeaderOpenLogStreamAppenderService(logStream))
-        .install();
+    // This will be started by Atomix leadershipEventListener
+//    installOperation
+//        .createService(openLogStreamServiceName, new LeaderOpenLogStreamAppenderService(logStream))
+//        .install();
 
     final LeaderState leaderState = new LeaderState(this, actor);
     installOperation
@@ -278,10 +278,10 @@ public class Raft extends Actor
           .install();
     }
 
-    final ActorFuture<Void> whenLeader = installOperation.install();
+    final ActorFuture<Void> whenLeader =  installOperation.install();
 
-    actor.runOnCompletion(
-        whenLeader, ((v, t) -> onStateTransitionCompleted(leaderState, throwable)));
+    //FIXME: To avoid circular dependency between Atomix leadership listeners
+    actor.submit(() -> onStateTransitionCompleted(leaderState, throwable));
 
     currentStateServiceName = installOperationServiceName;
   }

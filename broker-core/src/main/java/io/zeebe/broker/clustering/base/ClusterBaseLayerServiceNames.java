@@ -39,8 +39,15 @@ public class ClusterBaseLayerServiceNames {
   public static final ServiceName<Void> ATOMIX_JOIN_SERVICE =
       ServiceName.newServiceName("cluster.base.atomix.join", Void.class);
 
-  public static final ServiceName<LeaderElection> LEADER_ELECTION_SERVICE =
-    ServiceName.newServiceName("cluster.base.leaderelection", LeaderElection.class);
+  public static ServiceName<LeaderElection> leaderElectionServiceName(int partitionId) {
+    return ServiceName.newServiceName(
+        String.format("cluster.base.leaderelection-%d", partitionId), LeaderElection.class);
+  }
+
+  public static ServiceName<Void> leaderElectionRunServiceName(int partitionId) {
+    return ServiceName.newServiceName(
+        String.format("cluster.base.leaderelection-run-%d", partitionId), Void.class);
+  }
 
   public static final ServiceName<Void> RAFT_BOOTSTRAP_SERVICE =
       ServiceName.newServiceName("cluster.base.raft.bootstrap", Void.class);
@@ -68,6 +75,11 @@ public class ClusterBaseLayerServiceNames {
   public static ServiceName<Void> partitionInstallServiceName(final String partitionName) {
     return ServiceName.newServiceName(
         String.format("cluster.base.partition.install.%s", partitionName), Void.class);
+  }
+
+  public static ServiceName<Void> partitionRoleChangeListenerServiceName(final String partitionName) {
+    return ServiceName.newServiceName(
+      String.format("cluster.base.partition.rolechange.%s", partitionName), Void.class);
   }
 
   public static final ServiceName<Partition> LEADER_PARTITION_GROUP_NAME =

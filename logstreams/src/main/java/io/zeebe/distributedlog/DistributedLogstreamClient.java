@@ -16,9 +16,17 @@
 package io.zeebe.distributedlog;
 
 import io.atomix.primitive.event.Event;
+import java.util.concurrent.CompletableFuture;
 
 public interface DistributedLogstreamClient {
 
   @Event
   void appended();
+
+  @Event
+  void change(byte[] appendBytes);
+
+  CompletableFuture<Void> addListener(LogEventListener listener);
+
+  CompletableFuture<Void> removeListener(LogEventListener listener);
 }

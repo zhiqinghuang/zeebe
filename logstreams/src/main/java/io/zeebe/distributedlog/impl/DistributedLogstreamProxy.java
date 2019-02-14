@@ -24,8 +24,11 @@ import io.zeebe.distributedlog.AsyncDistributedLogstream;
 import io.zeebe.distributedlog.DistributedLogstream;
 import io.zeebe.distributedlog.DistributedLogstreamClient;
 import io.zeebe.distributedlog.DistributedLogstreamService;
+import io.zeebe.distributedlog.LogEventListener;
 import java.nio.ByteBuffer;
 import java.time.Duration;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,10 +40,12 @@ public class DistributedLogstreamProxy
   private CompletableFuture<Void> appendFuture;
 
   private static final Logger LOG = LoggerFactory.getLogger(DistributedLogstreamProxy.class);
+  private Set<LogEventListener> eventListeners;
 
   protected DistributedLogstreamProxy(
       ProxyClient<DistributedLogstreamService> client, PrimitiveRegistry registry) {
     super(client, registry);
+    eventListeners = new LinkedHashSet<>();
   }
 
   @Override
@@ -80,6 +85,30 @@ public class DistributedLogstreamProxy
     if (appendFuture != null) {
       appendFuture.complete(null);
     }
+  }
+
+  @Override
+  public void change(byte[] appendBytes) {
+    eventListeners.forEach(listener -> listener.onAppend(appendBytes));
+  }
+
+  @Override
+  public synchronized CompletableFuture<Void> addListener(LogEventListener listener) {
+    if (eventListeners.isEmpty()) {
+      eventListeners.add(listener);
+      return getProxyClient().acceptBy(name(), service -> service.listen()).thenApply(v -> null);
+    } else {
+      eventListeners.add(listener);
+      return CompletableFuture.completedFuture(null);
+    }
+  }
+
+  @Override
+  public synchronized CompletableFuture<Void> removeListener(LogEventListener listener) {
+    if (eventListeners.remove(listener) && eventListeners.isEmpty()) {
+      return getProxyClient().acceptBy(name(), service -> service.unlisten()).thenApply(v -> null);
+    }
+    return CompletableFuture.completedFuture(null);
   }
 
   @Override

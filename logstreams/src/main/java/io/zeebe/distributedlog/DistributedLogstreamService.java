@@ -21,4 +21,10 @@ public interface DistributedLogstreamService {
 
   @Command
   void append(byte[] blockBuffer);
+
+  @Command
+  void listen();
+
+  @Command
+  void unlisten();
 }

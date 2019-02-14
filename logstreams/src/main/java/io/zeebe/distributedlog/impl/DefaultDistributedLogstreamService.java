@@ -15,10 +15,12 @@
  */
 package io.zeebe.distributedlog.impl;
 
+import com.google.common.collect.Sets;
 import io.atomix.primitive.service.AbstractPrimitiveService;
 import io.atomix.primitive.service.BackupInput;
 import io.atomix.primitive.service.BackupOutput;
 import io.atomix.primitive.service.ServiceExecutor;
+import io.atomix.primitive.session.SessionId;
 import io.zeebe.distributedlog.DistributedLog;
 import io.zeebe.distributedlog.DistributedLogstreamClient;
 import io.zeebe.distributedlog.DistributedLogstreamService;
@@ -26,6 +28,7 @@ import io.zeebe.distributedlog.DistributedLogstreamType;
 import io.zeebe.logstreams.log.LogStream;
 import io.zeebe.logstreams.spi.LogStorage;
 import java.nio.ByteBuffer;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,6 +41,8 @@ public class DefaultDistributedLogstreamService
 
   private LogStream logstream;
   private LogStorage logStorage;
+
+  protected Set<SessionId> listeners = Sets.newLinkedHashSet();
 
   private long currentPosition;
 
@@ -64,10 +69,24 @@ public class DefaultDistributedLogstreamService
     if (position > 0) {
       currentPosition = position;
       LOG.info("Appended at position {}", currentPosition);
+      publish(blockBuffer);
     } else {
       LOG.info("Error Appending : {} ", position);
     }
-    // return position; //TODO
+  }
+
+  @Override
+  public void listen() {
+    listeners.add(getCurrentSession().sessionId());
+  }
+
+  @Override
+  public void unlisten() {
+    listeners.remove(getCurrentSession().sessionId());
+  }
+
+  private void publish(byte[] appendBytes) {
+    listeners.forEach(listener -> getSession(listener).accept(client -> client.change(appendBytes)));
   }
 
   @Override

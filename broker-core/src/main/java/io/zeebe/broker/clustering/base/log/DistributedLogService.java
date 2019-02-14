@@ -91,6 +91,8 @@ public class DistributedLogService implements Service<DistributedLogstream> {
 
     DistributedLog.setDistributedLog(distributedLog);
 
+    distributedLog.addListener(appendedBytes -> LOG.info("Received Log event with appendedBytes on member {}", atomix.getMembershipService().getLocalMember().id().id()));
+
     LOG.info("Set up distributed log primitive");
   }
 }

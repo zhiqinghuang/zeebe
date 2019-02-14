@@ -22,6 +22,10 @@ public interface DistributedLogstream extends SyncPrimitive {
 
   void append(ByteBuffer blockBuffer);
 
+  void addListener(LogEventListener listener);
+
+  void removeListener(LogEventListener listener);
+
   @Override
   AsyncDistributedLogstream async();
 }

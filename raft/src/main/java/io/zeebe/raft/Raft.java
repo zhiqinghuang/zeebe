@@ -23,7 +23,6 @@ import static io.zeebe.raft.RaftServiceNames.leaderInstallServiceName;
 import static io.zeebe.raft.RaftServiceNames.leaderOpenLogStreamServiceName;
 import static io.zeebe.raft.RaftServiceNames.leaderServiceName;
 import static io.zeebe.raft.RaftServiceNames.pollServiceName;
-import static io.zeebe.raft.RaftServiceNames.replicateLogConrollerServiceName;
 import static io.zeebe.raft.state.RaftTranisiton.TO_CANDIDATE;
 import static io.zeebe.raft.state.RaftTranisiton.TO_FOLLOWER;
 import static io.zeebe.raft.state.RaftTranisiton.TO_LEADER;
@@ -34,7 +33,6 @@ import io.zeebe.msgpack.value.ValueArray;
 import io.zeebe.raft.controller.AppendRaftEventController;
 import io.zeebe.raft.controller.LeaderCommitInitialEvent;
 import io.zeebe.raft.controller.LeaderOpenLogStreamAppenderService;
-import io.zeebe.raft.controller.MemberReplicateLogController;
 import io.zeebe.raft.controller.RaftJoinService;
 import io.zeebe.raft.controller.RaftPollService;
 import io.zeebe.raft.event.RaftConfigurationEventMember;
@@ -565,15 +563,6 @@ public class Raft extends Actor
       // start replication
       final int term = getTerm();
       final ServiceName<AbstractRaftState> leaderServiceName = leaderServiceName(raftName, term);
-      final ServiceName<Void> replicateLogControllerServiceName =
-          replicateLogConrollerServiceName(raftName, term, newMember.getNodeId());
-
-      serviceContext
-          .createService(
-              replicateLogControllerServiceName,
-              new MemberReplicateLogController(this, newMember, clientTransport))
-          .dependency(leaderServiceName)
-          .install();
 
       notifyMemberJoinedListeners();
 
@@ -598,9 +587,6 @@ public class Raft extends Actor
             if (state.getState() == RaftState.LEADER) {
               raftMembers.removeMember(nodeId);
 
-              // stop replication
-              serviceContext.removeService(
-                  replicateLogConrollerServiceName(raftName, getTerm(), nodeId));
               leaveFuture.complete(true);
             } else {
               leaveFuture.complete(false);

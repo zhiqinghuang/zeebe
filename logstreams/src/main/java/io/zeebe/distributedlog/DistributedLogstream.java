@@ -20,7 +20,7 @@ import java.nio.ByteBuffer;
 
 public interface DistributedLogstream extends SyncPrimitive {
 
-  void append(ByteBuffer blockBuffer);
+  void append(long commitPosition, ByteBuffer blockBuffer);
 
   void addListener(LogEventListener listener);
 

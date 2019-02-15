@@ -17,7 +17,6 @@ package io.zeebe.logstreams.impl;
 
 import io.zeebe.dispatcher.BlockPeek;
 import io.zeebe.dispatcher.Subscription;
-import io.zeebe.distributedlog.DistributedLog;
 import io.zeebe.distributedlog.DistributedLogstream;
 import io.zeebe.logstreams.spi.LogStorage;
 import io.zeebe.util.sched.Actor;
@@ -28,7 +27,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.agrona.MutableDirectBuffer;
 import org.slf4j.Logger;
 
-/** Consume the write buffer and append the blocks on the log storage. */
+/** Consume the write buffer and append the blocks to the distributedlog. */
 public class LogStorageAppender extends Actor {
   public static final Logger LOG = Loggers.LOGSTREAMS_LOGGER;
 
@@ -44,16 +43,18 @@ public class LogStorageAppender extends Actor {
   private Runnable peekedBlockHandler = this::appendBlock;
   private int maxAppendBlockSize;
 
-  private DistributedLogstream distributedLog;
+  private final DistributedLogstream distributedLog;
 
   public LogStorageAppender(
       String name,
       LogStorage logStorage,
+      DistributedLogstream distributedLog,
       Subscription writeBufferSubscription,
       int maxBlockSize,
       ActorConditions logStorageAppendConditions) {
     this.name = name;
     this.logStorage = logStorage;
+    this.distributedLog = distributedLog;
     this.writeBufferSubscription = writeBufferSubscription;
     this.maxAppendBlockSize = maxBlockSize;
     this.logStorageAppendConditions = logStorageAppendConditions;
@@ -66,9 +67,6 @@ public class LogStorageAppender extends Actor {
 
   @Override
   protected void onActorStarting() {
-
-    // TODO: Could be null if the service has not yet started??
-    distributedLog = DistributedLog.getDistributedLog();
 
     actor.consume(writeBufferSubscription, this::peekBlock);
   }
@@ -85,17 +83,12 @@ public class LogStorageAppender extends Actor {
     final ByteBuffer rawBuffer = blockPeek.getRawBuffer();
     final MutableDirectBuffer buffer = blockPeek.getBuffer();
 
-    // distributedLog = DistributedLog.getDistributedLog();
-
-    // LOG.info("Trying to write to distributed log {}", distributedLog);
-    // returns when completed
     try {
-
-      distributedLog.append(rawBuffer);
+      long commitPosition = getCurrentAppenderPosition() - 1; //TODO: Check
+      distributedLog.append(commitPosition, rawBuffer); //TODO: handle errors
       blockPeek.markCompleted();
-      logStorageAppendConditions.signalConsumers();
-      DistributedLog.getLogStreamForPartition0().setCommitPosition(getCurrentAppenderPosition());
-      LOG.info("Setting commited position as {}", getCurrentAppenderPosition());
+     // DistributedLog.getLogStreamForPartition0().setCommitPosition(getCurrentAppenderPosition() - 1);
+     LOG.info("Append event at position {}", commitPosition);
 
     } catch (Exception e) {
       // try again

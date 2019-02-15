@@ -24,7 +24,7 @@ public interface DistributedLogstreamClient {
   void appended();
 
   @Event
-  void change(byte[] appendBytes);
+  void change(CommitLogEvent event);
 
   CompletableFuture<Void> addListener(LogEventListener listener);
 

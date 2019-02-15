@@ -32,12 +32,15 @@ import io.atomix.utils.net.Address;
 import io.zeebe.broker.Loggers;
 import io.zeebe.broker.system.configuration.BrokerCfg;
 import io.zeebe.broker.system.configuration.ClusterCfg;
+import io.zeebe.broker.system.configuration.DataCfg;
 import io.zeebe.broker.system.configuration.NetworkCfg;
 import io.zeebe.broker.system.configuration.SocketBindingCfg;
 import io.zeebe.servicecontainer.Service;
 import io.zeebe.servicecontainer.ServiceStartContext;
 import java.io.File;
+import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
@@ -86,32 +89,33 @@ public class AtomixService implements Service<Atomix> {
             .build();
 
     final String raftPartitionGroupName = "raft-atomix";
-    final String raftDirectoryName = configuration.getData().getDirectories().get(0);
-    final File raftDirectory = new File(raftDirectoryName, raftPartitionGroupName);
-    LOG.info("creating atomix raft partition group with directory {}", raftDirectoryName);
 
+    final DataCfg dataConfiguration = configuration.getData();
+    String rootDirectory = dataConfiguration.getDirectories().get(0);
+    final File raftDirectory = new File(rootDirectory, raftPartitionGroupName);
     // FIXME: directory is also created when installing PartitionServices.
-    if (!raftDirectory.mkdirs()) {
-      if (!raftDirectory.exists()) {
-        throw new RuntimeException(
-            "Could not create directory " + raftDirectoryName + "/" + raftPartitionGroupName);
+    if (!raftDirectory.exists()) {
+      try {
+        raftDirectory.getParentFile().mkdirs();
+        Files.createDirectory(raftDirectory.toPath());
+      } catch (final IOException e) {
+        throw new RuntimeException("Unable to create directory " + raftDirectory, e);
       }
     }
 
-    final RaftPartitionGroup distributedlogGroup =
-        RaftPartitionGroup.builder(raftPartitionGroupName)
-            .withNumPartitions(1) // TODO: for now
-            .withPartitionSize(configuration.getCluster().getReplicationFactor())
-            .withMembers(getRaftGroupMembers(clusterCfg))
-            .withDataDirectory(raftDirectory)
-            .withFlushOnCommit()
-            .build();
+    final RaftPartitionGroup partitionGroup =
+      RaftPartitionGroup.builder(raftPartitionGroupName)
+        .withNumPartitions(configuration.getCluster().getPartitionsCount())
+        .withPartitionSize(configuration.getCluster().getReplicationFactor())
+        .withMembers(getRaftGroupMembers(clusterCfg))
+        .withDataDirectory(raftDirectory)
+        .withFlushOnCommit()
+        .build();
 
-    atomixBuilder.withManagementGroup(systemGroup).withPartitionGroups(distributedlogGroup);
+    atomixBuilder.withManagementGroup(systemGroup).withPartitionGroups(partitionGroup);
 
     atomix = atomixBuilder.build();
 
-    // atomix.getMembershipService().getLocalMember().config().
   }
 
   @Override

@@ -21,6 +21,7 @@ import io.atomix.primitive.proxy.ProxyClient;
 import io.atomix.primitive.proxy.ProxySession;
 import io.atomix.utils.concurrent.Futures;
 import io.zeebe.distributedlog.AsyncDistributedLogstream;
+import io.zeebe.distributedlog.CommitLogEvent;
 import io.zeebe.distributedlog.DistributedLogstream;
 import io.zeebe.distributedlog.DistributedLogstreamClient;
 import io.zeebe.distributedlog.DistributedLogstreamService;
@@ -49,14 +50,14 @@ public class DistributedLogstreamProxy
   }
 
   @Override
-  public CompletableFuture<Void> append(ByteBuffer blockBuffer) {
+  public CompletableFuture<Void> append(long commitPosition, ByteBuffer blockBuffer) {
     appendFuture = new CompletableFuture<Void>();
 
     final byte[] buffer = new byte[blockBuffer.remaining()];
     blockBuffer.get(buffer);
 
     getProxyClient()
-        .acceptBy(name(), service -> service.append(buffer))
+        .acceptBy(name(), service -> service.append(commitPosition, buffer))
         .whenComplete(
             (result, error) -> {
               if (error != null) {
@@ -88,8 +89,8 @@ public class DistributedLogstreamProxy
   }
 
   @Override
-  public void change(byte[] appendBytes) {
-    eventListeners.forEach(listener -> listener.onAppend(appendBytes));
+  public void change(CommitLogEvent event) {
+    eventListeners.forEach(listener -> listener.onCommit(event));
   }
 
   @Override

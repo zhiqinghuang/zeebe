@@ -21,7 +21,7 @@ import java.util.concurrent.CompletableFuture;
 
 public interface AsyncDistributedLogstream extends AsyncPrimitive {
 
-  CompletableFuture<Void> append(ByteBuffer blockBuffer);
+  CompletableFuture<Void> append(long commitPosition, ByteBuffer blockBuffer);
 
   @Override
   DistributedLogstream sync();

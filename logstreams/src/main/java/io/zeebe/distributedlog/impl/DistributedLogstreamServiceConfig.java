@@ -17,17 +17,7 @@ package io.zeebe.distributedlog.impl;
 
 import io.atomix.primitive.service.ServiceConfig;
 
+/* Define any configuration parameters needed for the DefaultDistributedLogstreamService */
 public class DistributedLogstreamServiceConfig extends ServiceConfig {
-
-  public DistributedLogstreamServiceConfig(int configId) {
-    this.configId = configId;
-  }
-
-  public int getConfigId() {
-    return configId;
-  }
-
-  private int configId; // for test
-  // TODO: Add config params here
 
 }

@@ -20,12 +20,10 @@ package io.zeebe.broker.clustering.base.log;
 import io.atomix.core.Atomix;
 import io.atomix.protocols.raft.MultiRaftProtocol;
 import io.zeebe.broker.Loggers;
-import io.zeebe.distributedlog.DistributedLog;
 import io.zeebe.distributedlog.DistributedLogstream;
 import io.zeebe.distributedlog.DistributedLogstreamBuilder;
 import io.zeebe.distributedlog.DistributedLogstreamType;
 import io.zeebe.distributedlog.impl.DistributedLogstreamConfig;
-import io.zeebe.logstreams.log.LogStream;
 import io.zeebe.servicecontainer.Injector;
 import io.zeebe.servicecontainer.Service;
 import io.zeebe.servicecontainer.ServiceStartContext;
@@ -36,32 +34,24 @@ public class DistributedLogService implements Service<DistributedLogstream> {
 
   private static final Logger LOG = Loggers.CLUSTERING_LOGGER;
 
-  private Injector<LogStream> logStreamInjector = new Injector();
-  private LogStream logStream;
   private Injector<Atomix> atomixInjector = new Injector();
   private Atomix atomix;
 
   private DistributedLogstream distributedLog;
 
-  private final String distributedLogName = "logstream-partition-0";
+  private final String distributedLogName = "distributed-logstream";
 
   @Override
   public void start(ServiceStartContext startContext) {
-    this.logStream = logStreamInjector.getValue();
     this.atomix = atomixInjector.getValue();
 
-    // FIXME: better way to access logstorage inside the primitive
-    DistributedLog.setLogStreamForPartition0(logStream);
-
-    // FIXME: Check if we can safely call atomix.start() here again.
-    // CompletableFuture<Void> future = atomix.start();
-
-    // Can create the primitive only after Atomix have started
-    // future.thenApply(
-    //     a -> {
-    onAtomixStart();
-    //      return a;
-    //   });
+    distributedLog =
+        atomix
+            .<DistributedLogstreamBuilder, DistributedLogstreamConfig, DistributedLogstream>
+                primitiveBuilder(distributedLogName, DistributedLogstreamType.instance())
+            .withProtocol(MultiRaftProtocol.builder().build()) // TODO: Use a custom partitioner
+            .build();
+    LOG.info("Set up distributed log primitive");
   }
 
   @Override
@@ -72,27 +62,7 @@ public class DistributedLogService implements Service<DistributedLogstream> {
     return distributedLog;
   }
 
-  public Injector<LogStream> getLogStreamInjector() {
-    return logStreamInjector;
-  }
-
   public Injector<Atomix> getAtomixInjector() {
     return atomixInjector;
-  }
-
-  private void onAtomixStart() {
-
-    distributedLog =
-        atomix
-            .<DistributedLogstreamBuilder, DistributedLogstreamConfig, DistributedLogstream>
-                primitiveBuilder(distributedLogName, DistributedLogstreamType.instance())
-            .withProtocol(MultiRaftProtocol.builder().build())
-            .build();
-
-    DistributedLog.setDistributedLog(distributedLog);
-
-    distributedLog.addListener(appendedBytes -> LOG.info("Received Log event with appendedBytes on member {}", atomix.getMembershipService().getLocalMember().id().id()));
-
-    LOG.info("Set up distributed log primitive");
   }
 }

@@ -38,10 +38,10 @@ public class BlockingDistributedLogstream extends Synchronous<AsyncDistributedLo
   }
 
   @Override
-  public void append(ByteBuffer blockBuffer) {
+  public void append(long commitPosition, ByteBuffer blockBuffer) {
 
     try {
-      distributedLogstreamProxy.append(blockBuffer).get(timeout, TimeUnit.MILLISECONDS);
+      distributedLogstreamProxy.append(commitPosition, blockBuffer).get(timeout, TimeUnit.MILLISECONDS);
     } catch (InterruptedException e) {
       e.printStackTrace();
     } catch (ExecutionException e) {

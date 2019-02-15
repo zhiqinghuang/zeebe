@@ -17,8 +17,10 @@ package io.zeebe.logstreams.impl.service;
 
 import io.zeebe.dispatcher.Dispatcher;
 import io.zeebe.dispatcher.Subscription;
+import io.zeebe.distributedlog.DistributedLogstream;
 import io.zeebe.logstreams.impl.LogBlockIndexWriter;
 import io.zeebe.logstreams.impl.LogStorageAppender;
+import io.zeebe.logstreams.impl.LogStorageAppenderListener;
 import io.zeebe.logstreams.impl.log.index.LogBlockIndex;
 import io.zeebe.logstreams.log.LogStream;
 import io.zeebe.logstreams.spi.LogStorage;
@@ -44,6 +46,17 @@ public class LogStreamServiceNames {
     return ServiceName.newServiceName(
         String.format("logstream.%s.storage.appender", logName), LogStorageAppender.class);
   }
+
+
+  public static final ServiceName<LogStorageAppenderListener> logStorageAppenderListenerServiceName(
+    String logName) {
+    return ServiceName.newServiceName(
+      String.format("logstream.%s.storage.appender.listener", logName), LogStorageAppenderListener.class);
+  }
+
+  public static final ServiceName<DistributedLogstream> DISTRIBUTED_LOG_SERVICE =
+    ServiceName.newServiceName("cluster.base.distributed.log", DistributedLogstream.class);
+
 
   public static final ServiceName<LogBlockIndex> logBlockIndexServiceName(String logName) {
     return ServiceName.newServiceName(

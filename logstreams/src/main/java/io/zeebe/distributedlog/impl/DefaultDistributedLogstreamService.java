@@ -19,15 +19,11 @@ import com.google.common.collect.Sets;
 import io.atomix.primitive.service.AbstractPrimitiveService;
 import io.atomix.primitive.service.BackupInput;
 import io.atomix.primitive.service.BackupOutput;
-import io.atomix.primitive.service.ServiceExecutor;
 import io.atomix.primitive.session.SessionId;
-import io.zeebe.distributedlog.DistributedLog;
+import io.zeebe.distributedlog.CommitLogEvent;
 import io.zeebe.distributedlog.DistributedLogstreamClient;
 import io.zeebe.distributedlog.DistributedLogstreamService;
 import io.zeebe.distributedlog.DistributedLogstreamType;
-import io.zeebe.logstreams.log.LogStream;
-import io.zeebe.logstreams.spi.LogStorage;
-import java.nio.ByteBuffer;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,9 +35,6 @@ public class DefaultDistributedLogstreamService
   private static final Logger LOG =
       LoggerFactory.getLogger(DefaultDistributedLogstreamService.class);
 
-  private LogStream logstream;
-  private LogStorage logStorage;
-
   protected Set<SessionId> listeners = Sets.newLinkedHashSet();
 
   private long currentPosition;
@@ -49,30 +42,14 @@ public class DefaultDistributedLogstreamService
   public DefaultDistributedLogstreamService(DistributedLogstreamServiceConfig config) {
     super(DistributedLogstreamType.instance(), DistributedLogstreamClient.class);
     currentPosition = 0;
-    this.logstream = DistributedLog.getLogStreamForPartition0(); // TODO: this is temporary hack.
-    this.logStorage = logstream.getLogStorage();
-    LOG.info(
-        "ConfigId {}, I will write to logstream {}", config.getConfigId(), logstream.getLogName());
   }
 
   @Override
-  protected void configure(ServiceExecutor executor) {
-    super.configure(executor);
-    LOG.info("Creating log file for {}. I'm member {}", getServiceName(), this.getLocalMemberId());
-  }
-
-  @Override
-  public void append(byte[] blockBuffer) {
-    // UnsafeBuffer buffer = new UnsafeBuffer(blockBuffer);
-    final ByteBuffer buffer = ByteBuffer.wrap(blockBuffer);
-    final long position = logStorage.append(buffer);
-    if (position > 0) {
-      currentPosition = position;
-      LOG.info("Appended at position {}", currentPosition);
-      publish(blockBuffer);
-    } else {
-      LOG.info("Error Appending : {} ", position);
-    }
+  public void append(long commitPosition, byte[] blockBuffer) {
+    LOG.info("Event committed");
+    currentPosition = commitPosition; //TODO: not used anywhere
+    //Publish the committed log entries to the listeners who will write to the logStorage.
+    publish(commitPosition, blockBuffer);
   }
 
   @Override
@@ -85,8 +62,10 @@ public class DefaultDistributedLogstreamService
     listeners.remove(getCurrentSession().sessionId());
   }
 
-  private void publish(byte[] appendBytes) {
-    listeners.forEach(listener -> getSession(listener).accept(client -> client.change(appendBytes)));
+  private void publish(long commitPosition, byte[] appendBytes) {
+    CommitLogEvent commitLogEvent = new CommitLogEvent(commitPosition, appendBytes);
+    listeners.forEach(
+        listener -> getSession(listener).accept(client -> client.change(commitLogEvent)));
   }
 
   @Override

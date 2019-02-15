@@ -20,7 +20,6 @@ package io.zeebe.broker.clustering;
 import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.ATOMIX_JOIN_SERVICE;
 import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.ATOMIX_SERVICE;
 import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.CLUSTERING_BASE_LAYER;
-import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.DISTRIBUTED_LOG_SERVICE;
 import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.RAFT_BOOTSTRAP_SERVICE;
 import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.RAFT_CONFIGURATION_MANAGER;
 import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.RAFT_SERVICE_GROUP;
@@ -29,7 +28,7 @@ import static io.zeebe.broker.clustering.base.ClusterBaseLayerServiceNames.TOPOL
 import static io.zeebe.broker.transport.TransportServiceNames.MANAGEMENT_API_CLIENT_NAME;
 import static io.zeebe.broker.transport.TransportServiceNames.REPLICATION_API_CLIENT_NAME;
 import static io.zeebe.broker.transport.TransportServiceNames.clientTransport;
-import static io.zeebe.logstreams.impl.service.LogStreamServiceNames.logStreamServiceName;
+import static io.zeebe.logstreams.impl.service.LogStreamServiceNames.DISTRIBUTED_LOG_SERVICE;
 
 import io.zeebe.broker.clustering.base.connections.RemoteAddressManager;
 import io.zeebe.broker.clustering.base.gossip.AtomixJoinService;
@@ -43,10 +42,8 @@ import io.zeebe.broker.system.Component;
 import io.zeebe.broker.system.SystemContext;
 import io.zeebe.broker.system.configuration.BrokerCfg;
 import io.zeebe.broker.system.configuration.NetworkCfg;
-import io.zeebe.logstreams.log.LogStream;
 import io.zeebe.servicecontainer.CompositeServiceBuilder;
 import io.zeebe.servicecontainer.ServiceContainer;
-import io.zeebe.servicecontainer.ServiceName;
 
 /** Installs the clustering component into the broker. */
 public class ClusterComponent implements Component {
@@ -94,7 +91,7 @@ public class ClusterComponent implements Component {
             remoteAddressManager.getReplicationClientTransportInjector())
         .install();
 
-    initGossip(baseLayerInstall, context, localMember);
+    initAtomix(baseLayerInstall, context);
     initPartitions(baseLayerInstall, context);
 
     // Currently assumes there is only one partition.
@@ -103,15 +100,15 @@ public class ClusterComponent implements Component {
     context.addRequiredStartAction(baseLayerInstall.install());
   }
 
-  private void initGossip(
-      final CompositeServiceBuilder baseLayerInstall,
-      final SystemContext context,
-      final NodeInfo localMember) {
+  private void initAtomix(
+      final CompositeServiceBuilder baseLayerInstall, final SystemContext context) {
 
     final AtomixService atomixService = new AtomixService(context.getBrokerConfiguration());
     baseLayerInstall.createService(ATOMIX_SERVICE, atomixService).install();
 
     final AtomixJoinService atomixJoinService = new AtomixJoinService();
+    // With RaftPartitionGroup AtomixJoinService completes only when majority of brokers have
+    // started and join the group. Hence don't add the servie to the baselayer.
     context
         .getServiceContainer()
         .createService(ATOMIX_JOIN_SERVICE, atomixJoinService)
@@ -143,14 +140,11 @@ public class ClusterComponent implements Component {
       final CompositeServiceBuilder baseLayerInstall, final SystemContext context) {
     final DistributedLogService distributedLogService = new DistributedLogService();
 
-    final String logName = "partition-0";
-    final ServiceName<LogStream> logStreamServiceName = logStreamServiceName(logName);
     context
         .getServiceContainer()
         .createService(DISTRIBUTED_LOG_SERVICE, distributedLogService)
         .dependency(ATOMIX_SERVICE, distributedLogService.getAtomixInjector())
         .dependency(ATOMIX_JOIN_SERVICE)
-        .dependency(logStreamServiceName, distributedLogService.getLogStreamInjector())
         .install();
   }
 }

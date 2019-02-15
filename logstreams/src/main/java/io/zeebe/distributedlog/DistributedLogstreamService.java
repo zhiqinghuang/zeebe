@@ -20,7 +20,7 @@ import io.atomix.primitive.operation.Command;
 public interface DistributedLogstreamService {
 
   @Command
-  void append(byte[] blockBuffer);
+  void append(long commitPosition, byte[] blockBuffer);
 
   @Command
   void listen();

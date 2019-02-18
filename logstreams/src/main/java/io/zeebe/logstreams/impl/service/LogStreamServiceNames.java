@@ -47,16 +47,15 @@ public class LogStreamServiceNames {
         String.format("logstream.%s.storage.appender", logName), LogStorageAppender.class);
   }
 
-
   public static final ServiceName<LogStorageCommitListener> logStorageCommitListenerServiceName(
-    String logName) {
+      String logName) {
     return ServiceName.newServiceName(
-      String.format("logstream.%s.storage.appender.listener", logName), LogStorageCommitListener.class);
+        String.format("logstream.%s.storage.appender.listener", logName),
+        LogStorageCommitListener.class);
   }
 
   public static final ServiceName<DistributedLogstream> DISTRIBUTED_LOG_SERVICE =
-    ServiceName.newServiceName("cluster.base.distributed.log", DistributedLogstream.class);
-
+      ServiceName.newServiceName("cluster.base.distributed.log", DistributedLogstream.class);
 
   public static final ServiceName<LogBlockIndex> logBlockIndexServiceName(String logName) {
     return ServiceName.newServiceName(

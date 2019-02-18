@@ -68,7 +68,7 @@ public class BlockingDistributedLogstream extends Synchronous<AsyncDistributedLo
 
   @Override
   public void removeListener(LogEventListener listener) {
-    //TODO: should we wait for the result?
+    // TODO: should we wait for the result?
     distributedLogstreamProxy.removeListener(listener);
   }
 

@@ -44,7 +44,10 @@ public class DistributedLogstreamType
   public Namespace namespace() {
     return Namespace.builder()
         .register(Namespaces.BASIC)
-        .register(new Class[] {ServiceConfig.class, DistributedLogstreamServiceConfig.class, CommitLogEvent.class})
+        .register(
+            new Class[] {
+              ServiceConfig.class, DistributedLogstreamServiceConfig.class, CommitLogEvent.class
+            })
         .build();
   }
 

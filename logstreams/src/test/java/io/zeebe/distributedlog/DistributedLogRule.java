@@ -1,3 +1,18 @@
+/*
+ * Copyright © 2017 camunda services GmbH (info@camunda.com)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package io.zeebe.distributedlog;
 
 import static io.zeebe.logstreams.impl.service.LogStreamServiceNames.DISTRIBUTED_LOG_SERVICE;
@@ -130,7 +145,7 @@ public class DistributedLogRule extends ExternalResource {
 
   private void createLogStream() throws IOException {
 
-    ActorFuture<LogStream> logStreamFuture =
+    final ActorFuture<LogStream> logStreamFuture =
         LogStreams.createFsLogStream(partition)
             .logName(logName)
             .deleteOnClose(true)
@@ -151,14 +166,12 @@ public class DistributedLogRule extends ExternalResource {
             .withProtocol(MultiRaftProtocol.builder().build())
             .build();
 
-    ActorFuture<DistributedLogstream> dlFuture =
-        serviceContainer.createService(DISTRIBUTED_LOG_SERVICE, () -> distributedLog).install();
-    dlFuture.join();
+    serviceContainer.createService(DISTRIBUTED_LOG_SERVICE, () -> distributedLog).install().join();
   }
 
   private CompletableFuture<Void> createAtomixNode() throws IOException {
 
-    AtomixBuilder atomixBuilder =
+    final AtomixBuilder atomixBuilder =
         Atomix.builder()
             .withClusterId("dl-test")
             .withMemberId(String.valueOf(nodeId))
@@ -173,7 +186,7 @@ public class DistributedLogRule extends ExternalResource {
 
     final String raftPartitionGroupName = "raft-atomix";
 
-    String rootDirectory = Files.createTempDirectory("dl-test-" + nodeId + "-").toString();
+    final String rootDirectory = Files.createTempDirectory("dl-test-" + nodeId + "-").toString();
     final File raftDirectory = new File(rootDirectory, raftPartitionGroupName);
     Files.createDirectory(raftDirectory.toPath());
 
@@ -203,7 +216,7 @@ public class DistributedLogRule extends ExternalResource {
   public long writeEvent(final String message) {
     writer.wrap(logStream);
 
-    AtomicLong writePosition = new AtomicLong();
+    final AtomicLong writePosition = new AtomicLong();
     final DirectBuffer value = wrapString(message);
 
     TestUtil.doRepeatedly(
@@ -230,12 +243,11 @@ public class DistributedLogRule extends ExternalResource {
   public boolean eventAppended(String message, long writePosition) {
     uncommittedReader.seek(writePosition);
     if (uncommittedReader.hasNext()) {
-      LoggedEvent event = uncommittedReader.next();
-      String messageRead =
+      final LoggedEvent event = uncommittedReader.next();
+      final String messageRead =
           bufferAsString(event.getValueBuffer(), event.getValueOffset(), event.getValueLength());
-      long eventPosition = event.getPosition();
-      boolean isEqual = (message.equals(messageRead) && eventPosition == writePosition);
-      return isEqual;
+      final long eventPosition = event.getPosition();
+      return (message.equals(messageRead) && eventPosition == writePosition);
     }
     return false;
   }

@@ -16,9 +16,9 @@
 package io.zeebe.logstreams.impl.service;
 
 import static io.zeebe.logstreams.impl.service.LogStreamServiceNames.DISTRIBUTED_LOG_SERVICE;
-import static io.zeebe.logstreams.impl.service.LogStreamServiceNames.logStorageCommitListenerServiceName;
 import static io.zeebe.logstreams.impl.service.LogStreamServiceNames.logStorageAppenderRootService;
 import static io.zeebe.logstreams.impl.service.LogStreamServiceNames.logStorageAppenderServiceName;
+import static io.zeebe.logstreams.impl.service.LogStreamServiceNames.logStorageCommitListenerServiceName;
 import static io.zeebe.logstreams.impl.service.LogStreamServiceNames.logStreamRootServiceName;
 import static io.zeebe.logstreams.impl.service.LogStreamServiceNames.logWriteBufferServiceName;
 import static io.zeebe.logstreams.impl.service.LogStreamServiceNames.logWriteBufferSubscriptionServiceName;
@@ -106,7 +106,7 @@ public class LogStreamService implements LogStream, Service<LogStream> {
   }
 
   private ActorFuture<LogStorageCommitListener> openCommitListener() {
-    LogStorageCommitListenerService logStorageAppenderListenerService =
+    final LogStorageCommitListenerService logStorageAppenderListenerService =
         new LogStorageCommitListenerService(this, onLogStorageAppendedConditions);
 
     // Service that listens to commit events from distributed-log and writes to logStorage

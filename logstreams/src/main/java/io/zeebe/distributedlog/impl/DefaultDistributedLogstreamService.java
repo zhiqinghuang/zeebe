@@ -46,8 +46,8 @@ public class DefaultDistributedLogstreamService
 
   @Override
   public void append(long commitPosition, byte[] blockBuffer) {
-    currentPosition = commitPosition; //TODO: not used anywhere
-    //Publish the committed log entries to the listeners who will write to the logStorage.
+    currentPosition = commitPosition; // TODO: not used anywhere
+    // Publish the committed log entries to the listeners who will write to the logStorage.
     publish(commitPosition, blockBuffer);
   }
 
@@ -62,7 +62,7 @@ public class DefaultDistributedLogstreamService
   }
 
   private void publish(long commitPosition, byte[] appendBytes) {
-    CommitLogEvent commitLogEvent = new CommitLogEvent(commitPosition, appendBytes);
+    final CommitLogEvent commitLogEvent = new CommitLogEvent(commitPosition, appendBytes);
     listeners.forEach(
         listener -> getSession(listener).accept(client -> client.change(commitLogEvent)));
   }

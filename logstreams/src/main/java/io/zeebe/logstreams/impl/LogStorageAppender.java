@@ -84,8 +84,8 @@ public class LogStorageAppender extends Actor {
     final MutableDirectBuffer buffer = blockPeek.getBuffer();
 
     try {
-      long commitPosition = getCurrentAppenderPosition(); //TODO: Check
-      distributedLog.append(commitPosition, rawBuffer); //TODO: handle errors
+      final long commitPosition = getCurrentAppenderPosition(); // TODO: Check
+      distributedLog.append(commitPosition, rawBuffer); // TODO: handle errors
       blockPeek.markCompleted();
 
     } catch (Exception e) {

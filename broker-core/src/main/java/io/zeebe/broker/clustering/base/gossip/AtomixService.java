@@ -91,7 +91,7 @@ public class AtomixService implements Service<Atomix> {
     final String raftPartitionGroupName = "raft-atomix";
 
     final DataCfg dataConfiguration = configuration.getData();
-    String rootDirectory = dataConfiguration.getDirectories().get(0);
+    final String rootDirectory = dataConfiguration.getDirectories().get(0);
     final File raftDirectory = new File(rootDirectory, raftPartitionGroupName);
     // FIXME: directory is also created when installing PartitionServices.
     if (!raftDirectory.exists()) {
@@ -104,18 +104,17 @@ public class AtomixService implements Service<Atomix> {
     }
 
     final RaftPartitionGroup partitionGroup =
-      RaftPartitionGroup.builder(raftPartitionGroupName)
-        .withNumPartitions(configuration.getCluster().getPartitionsCount())
-        .withPartitionSize(configuration.getCluster().getReplicationFactor())
-        .withMembers(getRaftGroupMembers(clusterCfg))
-        .withDataDirectory(raftDirectory)
-        .withFlushOnCommit()
-        .build();
+        RaftPartitionGroup.builder(raftPartitionGroupName)
+            .withNumPartitions(configuration.getCluster().getPartitionsCount())
+            .withPartitionSize(configuration.getCluster().getReplicationFactor())
+            .withMembers(getRaftGroupMembers(clusterCfg))
+            .withDataDirectory(raftDirectory)
+            .withFlushOnCommit()
+            .build();
 
     atomixBuilder.withManagementGroup(systemGroup).withPartitionGroups(partitionGroup);
 
     atomix = atomixBuilder.build();
-
   }
 
   @Override

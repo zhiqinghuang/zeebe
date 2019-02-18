@@ -464,11 +464,11 @@ public class StreamProcessorControllerTest {
     changeMockInActorContext(
         () ->
             doAnswer(
-                    (I) -> {
+                    (invocationOnMock) -> {
                       if (count.getAndIncrement() == 1) {
                         throw new RuntimeException("expected");
                       }
-                      return I.callRealMethod();
+                      return invocationOnMock.callRealMethod();
                     })
                 .when(streamProcessor)
                 .onEvent(any()));
@@ -501,11 +501,11 @@ public class StreamProcessorControllerTest {
     changeMockInActorContext(
         () ->
             doAnswer(
-                    (I) -> {
+                    (invocationOnMock) -> {
                       if (count.getAndIncrement() == 1) {
                         throw new RuntimeException("expected");
                       } else {
-                        I.callRealMethod();
+                        invocationOnMock.callRealMethod();
                       }
                       return null;
                     })

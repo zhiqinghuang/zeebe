@@ -87,32 +87,12 @@ public class LogStorageAppender extends Actor {
       long commitPosition = getCurrentAppenderPosition(); //TODO: Check
       distributedLog.append(commitPosition, rawBuffer); //TODO: handle errors
       blockPeek.markCompleted();
-     // DistributedLog.getLogStreamForPartition0().setCommitPosition(getCurrentAppenderPosition() - 1);
-     LOG.info("Append event at position {}", commitPosition);
 
     } catch (Exception e) {
       // try again
       LOG.info("Write failed");
       e.printStackTrace();
     }
-
-    /*final long address = logStorage.append(rawBuffer);
-    if (address >= 0) {
-      blockPeek.markCompleted();
-      logStorageAppendConditions.signalConsumers();
-    } else {
-      isFailed.set(true);
-
-      final long positionOfFirstEventInBlock = LogEntryDescriptor.getPosition(buffer, 0);
-      LOG.error(
-          "Failed to append log storage on position '{}'. Stop writing to log storage until recovered.",
-          positionOfFirstEventInBlock);
-
-      // recover log storage from failure - see zeebe-io/zeebe#500
-      peekedBlockHandler = this::discardBlock;
-
-      discardBlock();
-    }*/
   }
 
   private void discardBlock() {

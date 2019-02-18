@@ -65,7 +65,6 @@ public class DistributedLogstreamProxy
                 LOG.error("Append completed with an error.", error);
               } else {
                 appendFuture.complete(null);
-                LOG.debug("Append was successful.");
               }
             });
     return appendFuture.thenApply(result -> result).whenComplete((r, e) -> appendFuture = null);

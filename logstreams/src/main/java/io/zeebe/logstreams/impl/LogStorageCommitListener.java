@@ -25,9 +25,11 @@ public class LogStorageCommitListener extends Actor implements LogEventListener 
 
   private long lastCommittedPosition;
 
-  public LogStorageCommitListener(LogStorage logStorage,
-    LogStream logStream, DistributedLogstream distributedLog,
-    ActorConditions onLogStorageAppendedConditions) {
+  public LogStorageCommitListener(
+      LogStorage logStorage,
+      LogStream logStream,
+      DistributedLogstream distributedLog,
+      ActorConditions onLogStorageAppendedConditions) {
     this.logStorage = logStorage;
     this.logStream = logStream;
     this.distributedLog = distributedLog;
@@ -47,13 +49,15 @@ public class LogStorageCommitListener extends Actor implements LogEventListener 
   }
 
   private void append(long commitPosition, byte[] committedBytes) {
+    //TODO: check for redundant append requests.
     final ByteBuffer buffer = ByteBuffer.wrap(committedBytes);
     logStorage.append(buffer);
     onLogStorageAppendedConditions.signalConsumers();
-    //TODO: Check if the commitPosition is correct;
+    // TODO: Check if the commitPosition is correct;
     lastCommittedPosition = commitPosition;
+    // TODO: commitPosition not needed anymore because only committed events are appended. Following
+    // triggers the commitPosition listeners.
     logStream.setCommitPosition(commitPosition);
-    LOG.info("Writing commited logentry with commit position {}", commitPosition);
   }
 
   public ActorFuture<?> close() {

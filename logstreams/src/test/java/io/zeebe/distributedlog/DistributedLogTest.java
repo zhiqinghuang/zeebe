@@ -75,7 +75,6 @@ public class DistributedLogTest {
     node2.waitUntilNodesJoined();
     node3.waitUntilNodesJoined();
 
-    LOG.info("All nodes joined");
     node1.becomeLeader();
 
     Event event1 = writeEvent("record1");

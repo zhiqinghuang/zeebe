@@ -283,19 +283,21 @@ public class ClientApiRule extends ExternalResource {
   }
 
   public void cancelWorkflowInstance(long workflowInstanceKey) {
-    final int partitionId = RecordingExporter
-      .workflowInstanceRecords(WorkflowInstanceIntent.ELEMENT_ACTIVATED)
-      .withWorkflowInstanceKey(workflowInstanceKey)
-      .getFirst()
-      .getMetadata().getPartitionId();
+    final int partitionId =
+        RecordingExporter.workflowInstanceRecords(WorkflowInstanceIntent.ELEMENT_ACTIVATED)
+            .withWorkflowInstanceKey(workflowInstanceKey)
+            .getFirst()
+            .getMetadata()
+            .getPartitionId();
 
-    final ExecuteCommandResponse response = createCmdRequest()
-      .partitionId(partitionId)
-      .type(ValueType.WORKFLOW_INSTANCE, WorkflowInstanceIntent.CANCEL)
-      .key(workflowInstanceKey)
-      .command()
-      .done()
-      .sendAndAwait();
+    final ExecuteCommandResponse response =
+        createCmdRequest()
+            .partitionId(partitionId)
+            .type(ValueType.WORKFLOW_INSTANCE, WorkflowInstanceIntent.CANCEL)
+            .key(workflowInstanceKey)
+            .command()
+            .done()
+            .sendAndAwait();
 
     assertThat(response.getRecordType()).isEqualTo(RecordType.EVENT);
     assertThat(response.getIntent()).isEqualTo(WorkflowInstanceIntent.ELEMENT_TERMINATING);

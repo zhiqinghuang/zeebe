@@ -58,15 +58,16 @@ public class MessageCatchElementTest {
 
   public static final int PARTITION_COUNT = 3;
 
-  public static EmbeddedBrokerRule brokerRule = new EmbeddedBrokerRule(setPartitionCount(PARTITION_COUNT));
+  public static EmbeddedBrokerRule brokerRule =
+      new EmbeddedBrokerRule(setPartitionCount(PARTITION_COUNT));
   public static ClientApiRule apiRule =
       new ClientApiRule(0, PARTITION_COUNT, brokerRule::getClientAddress);
 
-  @ClassRule
-  public static RuleChain ruleChain = RuleChain.outerRule(brokerRule).around(apiRule);
+  @ClassRule public static RuleChain ruleChain = RuleChain.outerRule(brokerRule).around(apiRule);
 
   @Rule
-  public RecordingExporterTestWatcher recordingExporterTestWatcher = new RecordingExporterTestWatcher();
+  public RecordingExporterTestWatcher recordingExporterTestWatcher =
+      new RecordingExporterTestWatcher();
 
   public static final String ELEMENT_ID = "receive-message";
   public static final String CORRELATION_VARIABLE = "orderId";
@@ -176,7 +177,10 @@ public class MessageCatchElementTest {
         RecordingExporter.deploymentRecords(DeploymentIntent.DISTRIBUTED)
             .withKey(deploymentKey)
             .getFirst()
-      .getValue().getDeployedWorkflows().get(0).getWorkflowKey();
+            .getValue()
+            .getDeployedWorkflows()
+            .get(0)
+            .getWorkflowKey();
 
     correlationKey = UUID.randomUUID().toString();
     workflowInstanceKey =
@@ -263,8 +267,8 @@ public class MessageCatchElementTest {
         getFirstElementRecord(enteredState);
 
     RecordingExporter.messageSubscriptionRecords(MessageSubscriptionIntent.OPENED)
-      .withWorkflowInstanceKey(workflowInstanceKey)
-      .await();
+        .withWorkflowInstanceKey(workflowInstanceKey)
+        .await();
 
     // when
     apiRule.cancelWorkflowInstance(workflowInstanceKey);

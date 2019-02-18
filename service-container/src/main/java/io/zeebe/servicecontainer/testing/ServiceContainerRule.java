@@ -57,7 +57,7 @@ public class ServiceContainerRule extends ExternalResource {
   protected void after() {
     if (shouldStop) {
       try {
-        serviceContainer.close(5, TimeUnit.SECONDS);
+        serviceContainer.close(20, TimeUnit.SECONDS);
       } catch (InterruptedException | ExecutionException | TimeoutException e) {
         throw new RuntimeException(e);
       }

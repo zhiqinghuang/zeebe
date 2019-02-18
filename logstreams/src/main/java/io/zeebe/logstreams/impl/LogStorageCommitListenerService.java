@@ -9,39 +9,39 @@ import io.zeebe.servicecontainer.ServiceStopContext;
 import io.zeebe.util.sched.SchedulingHints;
 import io.zeebe.util.sched.channel.ActorConditions;
 
-public class LogStorageAppenderListernerService implements Service<LogStorageAppenderListener> {
+public class LogStorageCommitListenerService implements Service<LogStorageCommitListener> {
 
   private final Injector<DistributedLogstream> distributedLogstreamInjector = new Injector<>();
   private final LogStream logStream;
 
-  private LogStorageAppenderListener logStorageAppenderListener;
+  private LogStorageCommitListener logStorageCommitListener;
   private final ActorConditions onLogStorageAppendedConditions;
 
-  public LogStorageAppenderListernerService(LogStream logStream, ActorConditions onLogStorageAppendedConditions) {
+  public LogStorageCommitListenerService(LogStream logStream, ActorConditions onLogStorageAppendedConditions) {
     this.logStream = logStream;
     this.onLogStorageAppendedConditions = onLogStorageAppendedConditions;
   }
 
   @Override
   public void start(ServiceStartContext startContext) {
-    this.logStorageAppenderListener =
-        new LogStorageAppenderListener(
+    this.logStorageCommitListener =
+        new LogStorageCommitListener(
             logStream.getLogStorage(), logStream, distributedLogstreamInjector.getValue(), onLogStorageAppendedConditions);
 
     startContext.async(
         startContext
             .getScheduler()
-            .submitActor(logStorageAppenderListener, true, SchedulingHints.ioBound()));
+            .submitActor(logStorageCommitListener, true, SchedulingHints.ioBound()));
   }
 
   @Override
   public void stop(ServiceStopContext stopContext) {
-    stopContext.async(logStorageAppenderListener.close());
+    stopContext.async(logStorageCommitListener.close());
   }
 
   @Override
-  public LogStorageAppenderListener get() {
-    return this.logStorageAppenderListener;
+  public LogStorageCommitListener get() {
+    return this.logStorageCommitListener;
   }
 
   public Injector<DistributedLogstream> getDistributedLogstreamInjector() {

@@ -1,8 +1,13 @@
 package io.zeebe.distributedlog;
 
+import static io.zeebe.logstreams.impl.service.LogStreamServiceNames.DISTRIBUTED_LOG_SERVICE;
+import static io.zeebe.logstreams.impl.service.LogStreamServiceNames.logStorageAppenderRootService;
+import static io.zeebe.logstreams.impl.service.LogStreamServiceNames.logStorageAppenderServiceName;
 import static io.zeebe.util.buffer.BufferUtil.bufferAsString;
 import static io.zeebe.util.buffer.BufferUtil.wrapString;
 
+import io.atomix.cluster.Node;
+import io.atomix.cluster.discovery.BootstrapDiscoveryProvider;
 import io.atomix.core.Atomix;
 import io.atomix.core.AtomixBuilder;
 import io.atomix.protocols.backup.partition.PrimaryBackupPartitionGroup;
@@ -22,6 +27,7 @@ import io.zeebe.test.util.TestUtil;
 import io.zeebe.transport.SocketAddress;
 import io.zeebe.transport.impl.util.SocketUtil;
 import io.zeebe.util.sched.ActorScheduler;
+import io.zeebe.util.sched.future.ActorFuture;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -37,12 +43,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class DistributedLogRule extends ExternalResource {
-
   private final ActorScheduler actorScheduler;
   private final ServiceContainer serviceContainer;
   private final int nodeId;
   private final int partition;
   private final SocketAddress socketAddress;
+  private final List<Node> otherNodes;
   private LogStream logStream;
   private BufferedLogStreamReader uncommittedReader;
   private BufferedLogStreamReader committedReader;
@@ -51,27 +57,37 @@ public class DistributedLogRule extends ExternalResource {
   private int replicationFactor;
   private List<String> members;
   private DistributedLogstream distributedLog;
-  LogStreamWriterImpl writer = new LogStreamWriterImpl();
+  private LogStreamWriterImpl writer = new LogStreamWriterImpl();
 
   private final RecordMetadata metadata = new RecordMetadata();
   private CompletableFuture<Void> nodeStarted;
   public static final Logger LOG = LoggerFactory.getLogger("io.zeebe.distributedlog.test");
+  private final String logName;
 
   public DistributedLogRule(
-      final ServiceContainerRule serviceContainerRule,
+      ServiceContainerRule serviceContainerRule,
       final int nodeId,
       final int partition,
-      int numParitions,
+      int numPartitions,
       int replicationFactor,
-      List<String> members) {
+      List<String> members,
+      List<Node> otherNodes) {
     this.actorScheduler = serviceContainerRule.getActorScheduler();
     this.serviceContainer = serviceContainerRule.get();
     this.nodeId = nodeId;
     this.partition = partition;
-    this.numParitions = numParitions;
+    this.numParitions = numPartitions;
     this.replicationFactor = replicationFactor;
     this.socketAddress = SocketUtil.getNextAddress();
     this.members = members;
+    this.logName = String.format("%d-%d", this.partition, this.nodeId);
+    this.otherNodes = otherNodes;
+  }
+
+  public Node getNode() {
+    return Node.builder()
+        .withAddress(new Address(socketAddress.host(), socketAddress.port()))
+        .build();
   }
 
   @Override
@@ -80,7 +96,6 @@ public class DistributedLogRule extends ExternalResource {
         createAtomixNode()
             .whenComplete(
                 (r, t) -> {
-                  LOG.info("Creating logstream");
                   createDistributedLog();
                   try {
                     createLogStream();
@@ -90,43 +105,68 @@ public class DistributedLogRule extends ExternalResource {
                 });
   }
 
-  private void createLogStream() throws IOException {
- LOG.info("Creating log stream");
-    final String logName = String.format("%d-%d", partition, nodeId);
+  @Override
+  protected void after() {
+    if (serviceContainer.hasService(logStorageAppenderRootService(logName))) {
+      logStream.closeAppender().join(); // If opened
+    }
+    closeLogStream();
 
-    logStream =
+    closeDistributedLog();
+    stopAtomixNode();
+  }
+
+  private void stopAtomixNode() {
+    atomix.stop();
+  }
+
+  private void closeLogStream() {
+    logStream.close();
+  }
+
+  private void closeDistributedLog() {
+    serviceContainer.removeService(DISTRIBUTED_LOG_SERVICE);
+  }
+
+  private void createLogStream() throws IOException {
+
+    ActorFuture<LogStream> logStreamFuture =
         LogStreams.createFsLogStream(partition)
             .logName(logName)
             .deleteOnClose(true)
             .logDirectory(Files.createTempDirectory("dl-test-" + nodeId + "-").toString())
             .serviceContainer(serviceContainer)
-            .build()
-            .join();
+            .build();
+    logStream = logStreamFuture.join();
 
     uncommittedReader = new BufferedLogStreamReader(logStream, true);
     committedReader = new BufferedLogStreamReader(logStream, false);
-    LOG.info("created");
   }
 
   private void createDistributedLog() {
-    LOG.info("Creating distributed log");
     distributedLog =
         atomix
             .<DistributedLogstreamBuilder, DistributedLogstreamConfig, DistributedLogstream>
                 primitiveBuilder("distributed-log", DistributedLogstreamType.instance())
             .withProtocol(MultiRaftProtocol.builder().build())
             .build();
-    LOG.info("created");
 
+    ActorFuture<DistributedLogstream> dlFuture =
+        serviceContainer.createService(DISTRIBUTED_LOG_SERVICE, () -> distributedLog).install();
+    dlFuture.join();
   }
 
   private CompletableFuture<Void> createAtomixNode() throws IOException {
+
     AtomixBuilder atomixBuilder =
         Atomix.builder()
             .withClusterId("dl-test")
             .withMemberId(String.valueOf(nodeId))
             .withAddress(Address.from(socketAddress.host(), socketAddress.port()));
-    //   .withMembershipProvider(discoveryProvider);
+    if (otherNodes != null) {
+      atomixBuilder.withMembershipProvider(
+          BootstrapDiscoveryProvider.builder().withNodes(otherNodes).build());
+    }
 
     final PrimaryBackupPartitionGroup systemGroup =
         PrimaryBackupPartitionGroup.builder("system").withNumPartitions(1).build();
@@ -155,6 +195,9 @@ public class DistributedLogRule extends ExternalResource {
 
   public void becomeLeader() {
     logStream.openAppender();
+
+    TestUtil.waitUntil(
+        () -> serviceContainer.hasService(logStorageAppenderServiceName(logName)), 250);
   }
 
   public long writeEvent(final String message) {
@@ -180,8 +223,8 @@ public class DistributedLogRule extends ExternalResource {
   }
 
   protected void waitUntilNodesJoined()
-    throws ExecutionException, InterruptedException, TimeoutException {
-    nodeStarted.get(20, TimeUnit.SECONDS);
+      throws ExecutionException, InterruptedException, TimeoutException {
+    nodeStarted.get(50, TimeUnit.SECONDS);
   }
 
   public boolean eventAppended(String message, long writePosition) {
@@ -190,7 +233,9 @@ public class DistributedLogRule extends ExternalResource {
       LoggedEvent event = uncommittedReader.next();
       String messageRead =
           bufferAsString(event.getValueBuffer(), event.getValueOffset(), event.getValueLength());
-      return message.equals(messageRead) && event.getPosition() == writePosition;
+      long eventPosition = event.getPosition();
+      boolean isEqual = (message.equals(messageRead) && eventPosition == writePosition);
+      return isEqual;
     }
     return false;
   }

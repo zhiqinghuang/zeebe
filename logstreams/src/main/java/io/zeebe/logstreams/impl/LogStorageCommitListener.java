@@ -15,7 +15,7 @@ import org.slf4j.Logger;
  * Listen to the committed events in DistributedLogstream and appends the bytes to the logstorage.
  * This should run in all replicas including leader and followers.
  */
-public class LogStorageAppenderListener extends Actor implements LogEventListener {
+public class LogStorageCommitListener extends Actor implements LogEventListener {
 
   public static final Logger LOG = Loggers.LOGSTREAMS_LOGGER;
   private final LogStorage logStorage;
@@ -25,7 +25,7 @@ public class LogStorageAppenderListener extends Actor implements LogEventListene
 
   private long lastCommittedPosition;
 
-  public LogStorageAppenderListener(LogStorage logStorage,
+  public LogStorageCommitListener(LogStorage logStorage,
     LogStream logStream, DistributedLogstream distributedLog,
     ActorConditions onLogStorageAppendedConditions) {
     this.logStorage = logStorage;

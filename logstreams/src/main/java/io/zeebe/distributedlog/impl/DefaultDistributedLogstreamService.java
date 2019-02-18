@@ -60,6 +60,7 @@ public class DefaultDistributedLogstreamService
   @Override
   public void unlisten() {
     listeners.remove(getCurrentSession().sessionId());
+    LOG.info("removed listener");
   }
 
   private void publish(long commitPosition, byte[] appendBytes) {

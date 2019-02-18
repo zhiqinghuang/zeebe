@@ -38,11 +38,11 @@ public class BlockingDistributedLogstream extends Synchronous<AsyncDistributedLo
   }
 
   @Override
-  public void append(long commitPosition, ByteBuffer blockBuffer) {
-
+  public void append(String partition, ByteBuffer blockBuffer, long commitPosition) {
+    //TODO: handle errors
     try {
       distributedLogstreamProxy
-          .append(commitPosition, blockBuffer)
+          .append(partition, commitPosition, blockBuffer)
           .get(timeout, TimeUnit.MILLISECONDS);
     } catch (InterruptedException e) {
       e.printStackTrace();
@@ -54,9 +54,9 @@ public class BlockingDistributedLogstream extends Synchronous<AsyncDistributedLo
   }
 
   @Override
-  public void addListener(LogEventListener listener) {
+  public void addListener(String partition, LogEventListener listener) {
     try {
-      distributedLogstreamProxy.addListener(listener).get(timeout, TimeUnit.MILLISECONDS);
+      distributedLogstreamProxy.addListener(partition, listener).get(timeout, TimeUnit.MILLISECONDS);
     } catch (InterruptedException e) {
       e.printStackTrace();
     } catch (ExecutionException e) {
@@ -67,9 +67,9 @@ public class BlockingDistributedLogstream extends Synchronous<AsyncDistributedLo
   }
 
   @Override
-  public void removeListener(LogEventListener listener) {
+  public void removeListener(String partition, LogEventListener listener) {
     // TODO: should we wait for the result?
-    distributedLogstreamProxy.removeListener(listener);
+    distributedLogstreamProxy.removeListener(partition, listener);
   }
 
   @Override

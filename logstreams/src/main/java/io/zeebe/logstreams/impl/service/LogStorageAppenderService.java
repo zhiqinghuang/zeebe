@@ -16,7 +16,7 @@
 package io.zeebe.logstreams.impl.service;
 
 import io.zeebe.dispatcher.Subscription;
-import io.zeebe.distributedlog.DistributedLogstream;
+import io.zeebe.distributedlog.impl.DistributedLogstreamPartition;
 import io.zeebe.logstreams.impl.LogStorageAppender;
 import io.zeebe.logstreams.spi.LogStorage;
 import io.zeebe.servicecontainer.Injector;
@@ -29,7 +29,7 @@ import io.zeebe.util.sched.channel.ActorConditions;
 public class LogStorageAppenderService implements Service<LogStorageAppender> {
   private final Injector<LogStorage> logStorageInjector = new Injector<>();
   private final Injector<Subscription> appenderSubscriptionInjector = new Injector<>();
-  private final Injector<DistributedLogstream> distributedLogstreamInjector = new Injector<>();
+  private final Injector<DistributedLogstreamPartition> distributedLogstreamInjector = new Injector<>();
 
   private final int maxAppendBlockSize;
 
@@ -78,7 +78,7 @@ public class LogStorageAppenderService implements Service<LogStorageAppender> {
     return appenderSubscriptionInjector;
   }
 
-  public Injector<DistributedLogstream> getDistributedLogstreamInjector() {
+  public Injector<DistributedLogstreamPartition> getDistributedLogstreamInjector() {
     return distributedLogstreamInjector;
   }
 }

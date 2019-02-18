@@ -21,12 +21,12 @@ import java.util.concurrent.CompletableFuture;
 
 public interface AsyncDistributedLogstream extends AsyncPrimitive {
 
-  CompletableFuture<Void> append(long commitPosition, ByteBuffer blockBuffer);
+  CompletableFuture<Void> append(String partition, long commitPosition, ByteBuffer blockBuffer);
 
   @Override
   DistributedLogstream sync();
 
-  CompletableFuture<Void> addListener(LogEventListener listener);
+  CompletableFuture<Void> addListener(String partition, LogEventListener listener);
 
-  CompletableFuture<Void> removeListener(LogEventListener listener);
+  CompletableFuture<Void> removeListener(String partition, LogEventListener listener);
 }

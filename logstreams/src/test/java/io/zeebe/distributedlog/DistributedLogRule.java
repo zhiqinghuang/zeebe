@@ -16,6 +16,7 @@
 package io.zeebe.distributedlog;
 
 import static io.zeebe.logstreams.impl.service.LogStreamServiceNames.DISTRIBUTED_LOG_SERVICE;
+import static io.zeebe.logstreams.impl.service.LogStreamServiceNames.distributedLogPartitionServiceName;
 import static io.zeebe.logstreams.impl.service.LogStreamServiceNames.logStorageAppenderRootService;
 import static io.zeebe.logstreams.impl.service.LogStreamServiceNames.logStorageAppenderServiceName;
 import static io.zeebe.util.buffer.BufferUtil.bufferAsString;
@@ -30,6 +31,7 @@ import io.atomix.protocols.raft.MultiRaftProtocol;
 import io.atomix.protocols.raft.partition.RaftPartitionGroup;
 import io.atomix.utils.net.Address;
 import io.zeebe.distributedlog.impl.DistributedLogstreamConfig;
+import io.zeebe.distributedlog.impl.DistributedLogstreamPartition;
 import io.zeebe.logstreams.LogStreams;
 import io.zeebe.logstreams.log.BufferedLogStreamReader;
 import io.zeebe.logstreams.log.LogStream;
@@ -167,6 +169,12 @@ public class DistributedLogRule extends ExternalResource {
             .build();
 
     serviceContainer.createService(DISTRIBUTED_LOG_SERVICE, () -> distributedLog).install().join();
+
+    DistributedLogstreamPartition log = new DistributedLogstreamPartition(0);
+    serviceContainer
+        .createService(distributedLogPartitionServiceName(logName), log)
+        .dependency(DISTRIBUTED_LOG_SERVICE, log.getDistributedLogstreamInjector())
+        .install();
   }
 
   private CompletableFuture<Void> createAtomixNode() throws IOException {

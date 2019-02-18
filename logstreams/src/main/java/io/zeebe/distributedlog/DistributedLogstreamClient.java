@@ -16,7 +16,6 @@
 package io.zeebe.distributedlog;
 
 import io.atomix.primitive.event.Event;
-import java.util.concurrent.CompletableFuture;
 
 public interface DistributedLogstreamClient {
 
@@ -26,7 +25,4 @@ public interface DistributedLogstreamClient {
   @Event
   void change(CommitLogEvent event);
 
-  CompletableFuture<Void> addListener(LogEventListener listener);
-
-  CompletableFuture<Void> removeListener(LogEventListener listener);
 }

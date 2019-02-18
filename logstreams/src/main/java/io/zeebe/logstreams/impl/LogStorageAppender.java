@@ -17,7 +17,7 @@ package io.zeebe.logstreams.impl;
 
 import io.zeebe.dispatcher.BlockPeek;
 import io.zeebe.dispatcher.Subscription;
-import io.zeebe.distributedlog.DistributedLogstream;
+import io.zeebe.distributedlog.impl.DistributedLogstreamPartition;
 import io.zeebe.logstreams.spi.LogStorage;
 import io.zeebe.util.sched.Actor;
 import io.zeebe.util.sched.channel.ActorConditions;
@@ -43,12 +43,12 @@ public class LogStorageAppender extends Actor {
   private Runnable peekedBlockHandler = this::appendBlock;
   private int maxAppendBlockSize;
 
-  private final DistributedLogstream distributedLog;
+  private final DistributedLogstreamPartition distributedLog;
 
   public LogStorageAppender(
       String name,
       LogStorage logStorage,
-      DistributedLogstream distributedLog,
+      DistributedLogstreamPartition distributedLog,
       Subscription writeBufferSubscription,
       int maxBlockSize,
       ActorConditions logStorageAppendConditions) {
@@ -85,7 +85,7 @@ public class LogStorageAppender extends Actor {
 
     try {
       final long commitPosition = getCurrentAppenderPosition(); // TODO: Check
-      distributedLog.append(commitPosition, rawBuffer); // TODO: handle errors
+      distributedLog.append(rawBuffer, commitPosition); // TODO: handle errors
       blockPeek.markCompleted();
 
     } catch (Exception e) {

@@ -16,8 +16,8 @@
 package io.zeebe.logstreams.impl;
 
 import io.zeebe.distributedlog.CommitLogEvent;
-import io.zeebe.distributedlog.DistributedLogstream;
 import io.zeebe.distributedlog.LogEventListener;
+import io.zeebe.distributedlog.impl.DistributedLogstreamPartition;
 import io.zeebe.logstreams.log.LogStream;
 import io.zeebe.logstreams.spi.LogStorage;
 import io.zeebe.util.sched.Actor;
@@ -35,7 +35,7 @@ public class LogStorageCommitListener extends Actor implements LogEventListener 
   public static final Logger LOG = Loggers.LOGSTREAMS_LOGGER;
   private final LogStorage logStorage;
   private final LogStream logStream;
-  private final DistributedLogstream distributedLog;
+  private final DistributedLogstreamPartition distributedLog;
   private final ActorConditions onLogStorageAppendedConditions;
 
   private long lastCommittedPosition;
@@ -43,7 +43,7 @@ public class LogStorageCommitListener extends Actor implements LogEventListener 
   public LogStorageCommitListener(
       LogStorage logStorage,
       LogStream logStream,
-      DistributedLogstream distributedLog,
+      DistributedLogstreamPartition distributedLog,
       ActorConditions onLogStorageAppendedConditions) {
     this.logStorage = logStorage;
     this.logStream = logStream;

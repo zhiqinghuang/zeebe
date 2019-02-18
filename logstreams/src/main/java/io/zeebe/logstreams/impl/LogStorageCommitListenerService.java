@@ -15,7 +15,7 @@
  */
 package io.zeebe.logstreams.impl;
 
-import io.zeebe.distributedlog.DistributedLogstream;
+import io.zeebe.distributedlog.impl.DistributedLogstreamPartition;
 import io.zeebe.logstreams.log.LogStream;
 import io.zeebe.servicecontainer.Injector;
 import io.zeebe.servicecontainer.Service;
@@ -26,7 +26,7 @@ import io.zeebe.util.sched.channel.ActorConditions;
 
 public class LogStorageCommitListenerService implements Service<LogStorageCommitListener> {
 
-  private final Injector<DistributedLogstream> distributedLogstreamInjector = new Injector<>();
+  private final Injector<DistributedLogstreamPartition> distributedLogstreamInjector = new Injector<>();
   private final LogStream logStream;
 
   private LogStorageCommitListener logStorageCommitListener;
@@ -63,7 +63,7 @@ public class LogStorageCommitListenerService implements Service<LogStorageCommit
     return this.logStorageCommitListener;
   }
 
-  public Injector<DistributedLogstream> getDistributedLogstreamInjector() {
+  public Injector<DistributedLogstreamPartition> getDistributedLogstreamInjector() {
     return distributedLogstreamInjector;
   }
 }

@@ -15,7 +15,7 @@
  */
 package io.zeebe.logstreams.impl.service;
 
-import static io.zeebe.logstreams.impl.service.LogStreamServiceNames.DISTRIBUTED_LOG_SERVICE;
+import static io.zeebe.logstreams.impl.service.LogStreamServiceNames.distributedLogPartitionServiceName;
 import static io.zeebe.logstreams.impl.service.LogStreamServiceNames.logStorageAppenderRootService;
 import static io.zeebe.logstreams.impl.service.LogStreamServiceNames.logStorageAppenderServiceName;
 import static io.zeebe.logstreams.impl.service.LogStreamServiceNames.logStorageCommitListenerServiceName;
@@ -29,7 +29,6 @@ import io.zeebe.dispatcher.Dispatcher;
 import io.zeebe.dispatcher.DispatcherBuilder;
 import io.zeebe.dispatcher.Dispatchers;
 import io.zeebe.dispatcher.Subscription;
-import io.zeebe.distributedlog.DistributedLogstream;
 import io.zeebe.logstreams.impl.LogBlockIndexWriter;
 import io.zeebe.logstreams.impl.LogStorageAppender;
 import io.zeebe.logstreams.impl.LogStorageCommitListener;
@@ -114,7 +113,7 @@ public class LogStreamService implements LogStream, Service<LogStream> {
         .createService(
             logStorageCommitListenerServiceName(logName), logStorageAppenderListenerService)
         .dependency(
-            DISTRIBUTED_LOG_SERVICE,
+            distributedLogPartitionServiceName(logName),
             logStorageAppenderListenerService.getDistributedLogstreamInjector())
         .install();
   }
@@ -168,8 +167,7 @@ public class LogStreamService implements LogStream, Service<LogStream> {
                 logStorageInjector.getInjectedServiceName(),
                 appenderService.getLogStorageInjector())
             .dependency(
-                ServiceName.newServiceName(
-                    "cluster.base.distributed.log", DistributedLogstream.class),
+                distributedLogPartitionServiceName(logName),
                 appenderService.getDistributedLogstreamInjector())
             .install();
 

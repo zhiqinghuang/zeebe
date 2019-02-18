@@ -50,14 +50,15 @@ public class DistributedLogstreamProxy
   }
 
   @Override
-  public CompletableFuture<Void> append(long commitPosition, ByteBuffer blockBuffer) {
+  public CompletableFuture<Void> append(String partition, long commitPosition,
+    ByteBuffer blockBuffer) {
     appendFuture = new CompletableFuture<Void>();
 
     final byte[] buffer = new byte[blockBuffer.remaining()];
     blockBuffer.get(buffer);
 
     getProxyClient()
-        .acceptBy(name(), service -> service.append(commitPosition, buffer))
+        .acceptBy(partition, service -> service.append(commitPosition, buffer))
         .whenComplete(
             (result, error) -> {
               if (error != null) {
@@ -93,10 +94,11 @@ public class DistributedLogstreamProxy
   }
 
   @Override
-  public synchronized CompletableFuture<Void> addListener(LogEventListener listener) {
+  public synchronized CompletableFuture<Void> addListener(String partition,
+    LogEventListener listener) {
     if (eventListeners.isEmpty()) {
       eventListeners.add(listener);
-      return getProxyClient().acceptBy(name(), service -> service.listen()).thenApply(v -> null);
+      return getProxyClient().acceptBy(partition, service -> service.listen()).thenApply(v -> null);
     } else {
       eventListeners.add(listener);
       return CompletableFuture.completedFuture(null);
@@ -104,9 +106,10 @@ public class DistributedLogstreamProxy
   }
 
   @Override
-  public synchronized CompletableFuture<Void> removeListener(LogEventListener listener) {
+  public synchronized CompletableFuture<Void> removeListener(String partition,
+    LogEventListener listener) {
     if (eventListeners.remove(listener) && eventListeners.isEmpty()) {
-      return getProxyClient().acceptBy(name(), service -> service.unlisten()).thenApply(v -> null);
+      return getProxyClient().acceptBy(partition, service -> service.unlisten()).thenApply(v -> null);
     }
     return CompletableFuture.completedFuture(null);
   }

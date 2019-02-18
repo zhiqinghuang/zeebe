@@ -458,7 +458,7 @@ public class StreamProcessorControllerTest {
   }
 
   @Test
-  public void shouldFailOnEvent() {
+  public void shouldSkipEventOnEventError() {
     // given
     final AtomicLong count = new AtomicLong(0);
     changeMockInActorContext(
@@ -495,7 +495,7 @@ public class StreamProcessorControllerTest {
   }
 
   @Test
-  public void shouldFailOnProcessEvent() {
+  public void shouldSkipEventOnProcessEventError() {
     // given
     final AtomicLong count = new AtomicLong(0);
     changeMockInActorContext(

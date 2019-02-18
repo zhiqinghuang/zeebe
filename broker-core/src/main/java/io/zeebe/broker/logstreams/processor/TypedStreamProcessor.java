@@ -24,6 +24,8 @@ import io.zeebe.logstreams.processor.EventProcessor;
 import io.zeebe.logstreams.processor.StreamProcessor;
 import io.zeebe.logstreams.processor.StreamProcessorContext;
 import io.zeebe.msgpack.UnpackedObject;
+import io.zeebe.protocol.clientapi.RecordType;
+import io.zeebe.protocol.clientapi.RejectionType;
 import io.zeebe.protocol.clientapi.ValueType;
 import io.zeebe.protocol.impl.record.RecordMetadata;
 import io.zeebe.transport.ServerOutput;
@@ -120,13 +122,10 @@ public class TypedStreamProcessor implements StreamProcessor {
     }
   }
 
-  public MetadataFilter buildTypeFilter() {
-    return m ->
-        recordProcessors.containsKey(m.getRecordType(), m.getValueType(), m.getIntent().value());
-  }
-
   protected static class DelegatingEventProcessor implements EventProcessor {
 
+    public static final String PROCESSING_ERROR_MESSAGE =
+        "Expected to process event %s without errors, but exception occurred %s.";
     protected final int streamProcessorId;
     protected final LogStream logStream;
     protected final TypedStreamWriterImpl writer;
@@ -159,16 +158,36 @@ public class TypedStreamProcessor implements StreamProcessor {
 
     @Override
     public void processEvent() {
-      writer.reset();
-      responseWriter.reset();
+      try {
 
-      this.writer.configureSourceContext(streamProcessorId, position);
+        writer.reset();
+        responseWriter.reset();
 
-      // default side effect is responses; can be changed by processor
-      sideEffectProducer = responseWriter;
+        this.writer.configureSourceContext(streamProcessorId, position);
 
-      eventProcessor.processRecord(
-          position, event, responseWriter, writer, this::setSideEffectProducer);
+        // default side effect is responses; can be changed by processor
+        sideEffectProducer = responseWriter;
+
+        eventProcessor.processRecord(
+            position, event, responseWriter, writer, this::setSideEffectProducer);
+      } catch (Exception exception) {
+        // send command rejection
+        if (event.metadata.getRecordType() == RecordType.COMMAND) {
+          responseWriter.reset();
+
+          final String errorMessage =
+              String.format(PROCESSING_ERROR_MESSAGE, event, exception.getMessage());
+          responseWriter.writeRejectionOnCommand(
+              event, RejectionType.PROCESSING_ERROR, errorMessage);
+          responseWriter.flush();
+        } else if (event.getMetadata().getRecordType() == RecordType.EVENT) {
+          // clean up state?
+          // processor knows how to clean up?
+        }
+
+        // re-throw such that stream process controller skips this event
+        throw exception;
+      }
     }
 
     public void setSideEffectProducer(final SideEffectProducer sideEffectProducer) {
